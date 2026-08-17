@@ -1,0 +1,28 @@
+{
+  "name": "finance-app-cdk",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy:beta": "cdk deploy FinanceApp-Beta --require-approval never",
+    "deploy:prod": "cdk deploy FinanceApp-Prod --require-approval never",
+    "diff:beta": "cdk diff FinanceApp-Beta",
+    "diff:prod": "cdk diff FinanceApp-Prod",
+    "synth": "cdk synth"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "aws-cdk": "^2.150.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.150.0",
+    "constructs": "^10.3.0"
+  }
+}

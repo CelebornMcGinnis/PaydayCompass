@@ -1,0 +1,24 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SharedLayer = void 0;
+const constructs_1 = require("constructs");
+const lambda = require("aws-cdk-lib/aws-lambda");
+/**
+ * The shared Python package used by every function that previously
+ * duplicated recurring-schedule math or the budget-notification-check
+ * logic. See lambda-layers/finance-common/python/finance_common/__init__.py
+ * for the full rationale.
+ */
+class SharedLayer extends constructs_1.Construct {
+    constructor(scope, id, cfg) {
+        super(scope, id);
+        this.layer = new lambda.LayerVersion(this, "FinanceCommonLayer", {
+            layerVersionName: `${cfg.resourcePrefix}-finance-common`,
+            code: lambda.Code.fromAsset("lambda-layers/finance-common"),
+            compatibleRuntimes: [lambda.Runtime.PYTHON_3_12],
+            description: "Shared schedule math, Cognito lookups, and budget-notification-check logic",
+        });
+    }
+}
+exports.SharedLayer = SharedLayer;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoic2hhcmVkLWxheWVyLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiLi4vLi4vLi4vbGliL2NvbnN0cnVjdHMvc2hhcmVkLWxheWVyLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7OztBQUFBLDJDQUF1QztBQUN2QyxpREFBaUQ7QUFHakQ7Ozs7O0dBS0c7QUFDSCxNQUFhLFdBQVksU0FBUSxzQkFBUztJQUd4QyxZQUFZLEtBQWdCLEVBQUUsRUFBVSxFQUFFLEdBQXNCO1FBQzlELEtBQUssQ0FBQyxLQUFLLEVBQUUsRUFBRSxDQUFDLENBQUM7UUFFakIsSUFBSSxDQUFDLEtBQUssR0FBRyxJQUFJLE1BQU0sQ0FBQyxZQUFZLENBQUMsSUFBSSxFQUFFLG9CQUFvQixFQUFFO1lBQy9ELGdCQUFnQixFQUFFLEdBQUcsR0FBRyxDQUFDLGNBQWMsaUJBQWlCO1lBQ3hELElBQUksRUFBRSxNQUFNLENBQUMsSUFBSSxDQUFDLFNBQVMsQ0FBQyw4QkFBOEIsQ0FBQztZQUMzRCxrQkFBa0IsRUFBRSxDQUFDLE1BQU0sQ0FBQyxPQUFPLENBQUMsV0FBVyxDQUFDO1lBQ2hELFdBQVcsRUFBRSw0RUFBNEU7U0FDMUYsQ0FBQyxDQUFDO0lBQ0wsQ0FBQztDQUNGO0FBYkQsa0NBYUMiLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBDb25zdHJ1Y3QgfSBmcm9tIFwiY29uc3RydWN0c1wiO1xuaW1wb3J0ICogYXMgbGFtYmRhIGZyb20gXCJhd3MtY2RrLWxpYi9hd3MtbGFtYmRhXCI7XG5pbXBvcnQgeyBFbnZpcm9ubWVudENvbmZpZyB9IGZyb20gXCIuLi8uLi9jb25maWcvZW52aXJvbm1lbnRzXCI7XG5cbi8qKlxuICogVGhlIHNoYXJlZCBQeXRob24gcGFja2FnZSB1c2VkIGJ5IGV2ZXJ5IGZ1bmN0aW9uIHRoYXQgcHJldmlvdXNseVxuICogZHVwbGljYXRlZCByZWN1cnJpbmctc2NoZWR1bGUgbWF0aCBvciB0aGUgYnVkZ2V0LW5vdGlmaWNhdGlvbi1jaGVja1xuICogbG9naWMuIFNlZSBsYW1iZGEtbGF5ZXJzL2ZpbmFuY2UtY29tbW9uL3B5dGhvbi9maW5hbmNlX2NvbW1vbi9fX2luaXRfXy5weVxuICogZm9yIHRoZSBmdWxsIHJhdGlvbmFsZS5cbiAqL1xuZXhwb3J0IGNsYXNzIFNoYXJlZExheWVyIGV4dGVuZHMgQ29uc3RydWN0IHtcbiAgcHVibGljIHJlYWRvbmx5IGxheWVyOiBsYW1iZGEuTGF5ZXJWZXJzaW9uO1xuXG4gIGNvbnN0cnVjdG9yKHNjb3BlOiBDb25zdHJ1Y3QsIGlkOiBzdHJpbmcsIGNmZzogRW52aXJvbm1lbnRDb25maWcpIHtcbiAgICBzdXBlcihzY29wZSwgaWQpO1xuXG4gICAgdGhpcy5sYXllciA9IG5ldyBsYW1iZGEuTGF5ZXJWZXJzaW9uKHRoaXMsIFwiRmluYW5jZUNvbW1vbkxheWVyXCIsIHtcbiAgICAgIGxheWVyVmVyc2lvbk5hbWU6IGAke2NmZy5yZXNvdXJjZVByZWZpeH0tZmluYW5jZS1jb21tb25gLFxuICAgICAgY29kZTogbGFtYmRhLkNvZGUuZnJvbUFzc2V0KFwibGFtYmRhLWxheWVycy9maW5hbmNlLWNvbW1vblwiKSxcbiAgICAgIGNvbXBhdGlibGVSdW50aW1lczogW2xhbWJkYS5SdW50aW1lLlBZVEhPTl8zXzEyXSxcbiAgICAgIGRlc2NyaXB0aW9uOiBcIlNoYXJlZCBzY2hlZHVsZSBtYXRoLCBDb2duaXRvIGxvb2t1cHMsIGFuZCBidWRnZXQtbm90aWZpY2F0aW9uLWNoZWNrIGxvZ2ljXCIsXG4gICAgfSk7XG4gIH1cbn1cbiJdfQ==

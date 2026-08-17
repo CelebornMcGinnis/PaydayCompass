@@ -1,0 +1,135 @@
+import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
+import { colors, fontDisplay, fontBody } from "../lib/theme";
+
+/**
+ * A spotlight tour over whatever's actually rendered on the page - takes
+ * refs to real DOM elements (not a fake replica of the screen) and
+ * measures their live position with getBoundingClientRect, so what's
+ * highlighted is exactly what's really there.
+ *
+ * A step's target may not be in the DOM the instant its step becomes
+ * active - e.g. a menu item that only renders after onStepChange opens
+ * the menu, which is an async state update in the parent. This retries
+ * briefly (500ms) before concluding a target is genuinely absent (e.g.
+ * the account list ref when there are zero accounts) and skipping ahead.
+ */
+export default function Walkthrough({ steps, onFinish, onStepChange }) {
+  const [index, setIndex] = useState(0);
+  const [rect, setRect] = useState(null);
+
+  const step = steps[index];
+
+  useEffect(() => {
+    onStepChange?.(index, step);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  useEffect(() => {
+    let attempts = 0;
+    let timeoutId;
+
+    function measure() {
+      const el = step?.ref?.current;
+      if (el) {
+        setRect(el.getBoundingClientRect());
+        return;
+      }
+      if (attempts < 10) {
+        // Give an async side effect (like opening a menu) time to mount
+        // its content before giving up on this step's target.
+        attempts += 1;
+        timeoutId = setTimeout(measure, 50);
+        return;
+      }
+      // Genuinely absent (not just not-yet-mounted) - skip this step
+      // rather than spotlight nothing, unless it's the last step.
+      setRect(null);
+      if (index < steps.length - 1) {
+        setIndex((i) => i + 1);
+      }
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  if (!step) return null;
+
+  const padding = 8;
+  const spotlightStyle = rect
+    ? {
+        position: "fixed",
+        top: rect.top - padding,
+        left: rect.left - padding,
+        width: rect.width + padding * 2,
+        height: rect.height + padding * 2,
+        borderRadius: 16,
+        boxShadow: `0 0 0 3px ${colors.accentLight}, 0 0 0 9999px rgba(15,27,45,0.78)`,
+        zIndex: 100,
+        pointerEvents: "none",
+        transition: "all 0.2s ease",
+      }
+    : {
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15,27,45,0.78)",
+        zIndex: 100,
+      };
+
+  // Position the card below the spotlighted element, or centered if there's no target
+  const cardStyle = rect
+    ? {
+        position: "fixed",
+        top: Math.min(rect.bottom + padding + 12, window.innerHeight - 180),
+        left: 20,
+        right: 20,
+        zIndex: 101,
+      }
+    : {
+        position: "fixed",
+        top: "50%",
+        left: 20,
+        right: 20,
+        transform: "translateY(-50%)",
+        zIndex: 101,
+      };
+
+  return (
+    <>
+      <div style={spotlightStyle} />
+      <div style={{ ...cardStyle, background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}`, fontFamily: fontBody }} className="max-w-sm mx-auto rounded-2xl p-5">
+        <div className="flex items-start justify-between mb-2">
+          <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 17, fontWeight: 600 }}>{step.title}</h3>
+          <button onClick={onFinish} aria-label="Skip tour" style={{ color: colors.textMuted }}>
+            <X size={18} />
+          </button>
+        </div>
+        <p className="text-sm mb-4" style={{ color: colors.textMuted }}>{step.body}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1.5">
+            {steps.map((_, i) => (
+              <div key={i} className="rounded-full" style={{ width: i === index ? 16 : 6, height: 6, background: i === index ? colors.accent : colors.border }} />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {index < steps.length - 1 ? (
+              <button onClick={() => setIndex((i) => i + 1)} className="rounded-lg px-4 py-2 text-xs font-medium" style={{ background: colors.accent, color: colors.bg }}>
+                Next
+              </button>
+            ) : (
+              <button onClick={onFinish} className="rounded-lg px-4 py-2 text-xs font-medium" style={{ background: colors.accent, color: colors.bg }}>
+                Done
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

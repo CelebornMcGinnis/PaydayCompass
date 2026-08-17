@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="dark"] {
+  --color-bg: #0F1B2D;
+  --color-surface: #16243B;
+  --color-surface-raised: #1E304A;
+  --color-border: rgba(237, 230, 214, 0.12);
+  --color-border-strong: rgba(237, 230, 214, 0.22);
+  --color-text: #EDE6D6;
+  --color-text-muted: #8FA0BE;
+  --color-accent: #2E8B74;
+  --color-accent-light: #4FA490;
+  --color-positive: #7FD9B9;
+  --color-alert: #E0784F;
+  --color-warning: #D6A24C;
+  --color-bg-translucent: rgba(15, 27, 45, 0.9);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  /* Same brand (navy + parchment cream + teal), inverted for a light
+     background - matches the light-variant logo's own cream/navy pairing.
+     positive/alert are darkened from their dark-mode values since those
+     were tuned to pop against navy and would have poor contrast here. */
+  --color-bg: #F5EFE0;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F0E9D8;
+  --color-border: rgba(15, 27, 45, 0.12);
+  --color-border-strong: rgba(15, 27, 45, 0.22);
+  --color-text: #0F1B2D;
+  --color-text-muted: #5A6B85;
+  --color-accent: #2E8B74;
+  --color-accent-light: #237A64;
+  --color-positive: #1F9A6E;
+  --color-alert: #C24E28;
+  --color-warning: #9C6B1F;
+  --color-bg-translucent: rgba(245, 239, 224, 0.9);
+  color-scheme: light;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  max-width: 100vw;
+  background: var(--color-bg);
+  transition: background-color 0.15s ease;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* iOS Safari auto-zooms the page when a focused text input's computed
+   font-size is below 16px - this is what causes the "zooms in a bit"
+   behavior on any form field throughout the app, not just one screen.
+   !important is deliberate here: a plain `input { font-size: 16px }`
+   rule is silently beaten by any Tailwind text-size class (text-sm,
+   text-xs, etc.) on the element, since CSS class selectors always win
+   over element-type selectors regardless of source order - and nearly
+   every input in this app has one. Without !important this rule does
+   almost nothing. */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* A handful of inputs are deliberately large (MFA code entry at
+   text-2xl, big dollar-amount fields at text-3xl) and were never
+   actually part of the iOS zoom problem - they were already well above
+   the 16px threshold. These restore Tailwind's own values, since the
+   blanket rule above would otherwise shrink them to 16px. */
+input.text-2xl {
+  font-size: 1.5rem !important;
+}
+input.text-3xl {
+  font-size: 1.875rem !important;
+}
