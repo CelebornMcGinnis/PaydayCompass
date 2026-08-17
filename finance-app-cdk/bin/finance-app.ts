@@ -5,6 +5,15 @@ import { environments } from "../config/environments";
 
 const app = new cdk.App();
 
+new FinanceAppStack(app, "FinanceApp-Dev", {
+  cfg: environments.dev,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION || "us-east-1",
+  },
+  description: "Personal finance app - dev/experimental environment, meant to be torn down with cdk destroy when not in active use",
+});
+
 new FinanceAppStack(app, "FinanceApp-Beta", {
   cfg: environments.beta,
   env: {

@@ -1,4 +1,4 @@
-export type EnvironmentName = "beta" | "prod";
+export type EnvironmentName = "beta" | "prod" | "dev";
 
 export interface EnvironmentConfig {
   envName: EnvironmentName;
@@ -24,6 +24,16 @@ const baseTags = (envName: EnvironmentName) => ({
 });
 
 export const environments: Record<EnvironmentName, EnvironmentConfig> = {
+  dev: {
+    envName: "dev",
+    resourcePrefix: "finance-app-dev",
+    // domainName: "dev.yourdomain.com",
+    retainDataOnDestroy: false, // must stay false - this env is meant to be torn down with `cdk destroy FinanceApp-Dev`
+    enableAdvancedSecurity: false, // save Cognito Plus cost
+    alertEmail: "mcginnisholdingsllc@gmail.com",
+    sesFromAddress: "no-reply@mcginnisarchitecture.com",
+    tags: baseTags("dev"),
+  },
   beta: {
     envName: "beta",
     resourcePrefix: "finance-app-beta",

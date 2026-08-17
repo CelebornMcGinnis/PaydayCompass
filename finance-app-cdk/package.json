@@ -9,10 +9,13 @@
     "build": "tsc",
     "watch": "tsc -w",
     "cdk": "cdk",
+    "deploy:dev": "cdk deploy FinanceApp-Dev --require-approval never",
     "deploy:beta": "cdk deploy FinanceApp-Beta --require-approval never",
     "deploy:prod": "cdk deploy FinanceApp-Prod --require-approval never",
+    "diff:dev": "cdk diff FinanceApp-Dev",
     "diff:beta": "cdk diff FinanceApp-Beta",
     "diff:prod": "cdk diff FinanceApp-Prod",
+    "destroy:dev": "cdk destroy FinanceApp-Dev",
     "synth": "cdk synth"
   },
   "devDependencies": {
