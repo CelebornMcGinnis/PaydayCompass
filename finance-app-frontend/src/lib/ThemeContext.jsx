@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext(null);
-const STORAGE_KEY = "ledgerline-theme";
+const STORAGE_KEY = "paydaycompass-theme";
 
 function getInitialTheme() {
   try {

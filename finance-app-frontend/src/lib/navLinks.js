@@ -1,10 +1,11 @@
-import { PieChart, Calendar, Repeat, Target, Users, GitBranch, Bell, FileText, TrendingUp, Landmark, Settings as SettingsIcon, LineChart, ArrowLeftRight, Mail } from "lucide-react";
+import { PieChart, Calendar, Repeat, Target, Users, GitBranch, Bell, FileText, TrendingUp, Landmark, Settings as SettingsIcon, LineChart, ArrowLeftRight, Mail, ListPlus } from "lucide-react";
 
 export const NAV_SECTIONS = [
   {
     label: "Money movement",
     links: [
       { to: "/payday", label: "Payday calculator", icon: Calendar, description: "Everything due before your next paycheck, adjustable, submitted as one batch." },
+      { to: "/add-multiple", label: "Add multiple", icon: ListPlus, description: "Enter several transactions at once, across any of your accounts." },
       { to: "/transfer", label: "Transfer funds", icon: ArrowLeftRight, description: "Move money between two of your own accounts - posts real, linked transactions on both sides." },
       { to: "/recurring", label: "Recurring", icon: Repeat, description: "Create, edit, or delete recurring bills and income that post automatically on schedule." },
       { to: "/upcoming-recurring", label: "Upcoming expenses", icon: Calendar, description: "Every recurring expense's upcoming occurrences, chronologically - not just the next one." },

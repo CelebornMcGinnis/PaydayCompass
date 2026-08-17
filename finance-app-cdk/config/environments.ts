@@ -30,7 +30,7 @@ export const environments: Record<EnvironmentName, EnvironmentConfig> = {
     // domainName: "beta.yourdomain.com",
     retainDataOnDestroy: false,
     enableAdvancedSecurity: false, // save Cognito Plus cost in beta; flip on to test MFA flows
-    alertEmail: "Celeborn.mcginnis@gmail.com", // also gets beta alarm emails now, same address as prod
+    alertEmail: "mcginnisholdingsllc@gmail.com", // also gets beta alarm emails now, same address as prod
     sesFromAddress: "no-reply@mcginnisarchitecture.com",
     tags: baseTags("beta"),
   },
@@ -40,7 +40,7 @@ export const environments: Record<EnvironmentName, EnvironmentConfig> = {
     // domainName: "app.yourdomain.com",
     retainDataOnDestroy: true, // never auto-delete real financial data
     enableAdvancedSecurity: true,
-    alertEmail: "Celeborn.mcginnis@gmail.com",
+    alertEmail: "mcginnisholdingsllc@gmail.com",
     sesFromAddress: "no-reply@mcginnisarchitecture.com",
     tags: baseTags("prod"),
   },

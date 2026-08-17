@@ -154,7 +154,8 @@ export class Lambdas extends Construct {
     this.contactFn = baseFnProps(
       "contact-fn",
       "lambda/contact",
-      "Public contact form - emails the site owner via SES, no auth required"
+      "Public contact form - emails the site owner via SES, no auth required",
+      true
     );
     this.contactFn.addEnvironment("CONTACT_TO_ADDRESS", cfg.alertEmail);
     this.contactFn.addToRolePolicy(sesSendPolicy(this, cfg.sesFromAddress));

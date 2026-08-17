@@ -132,8 +132,8 @@ export default function GettingSetupPage() {
         {step === "welcome" && (
           <div className="text-center">
             <img
-              src={theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png"}
-              alt="Ledgerline"
+              src={theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png"}
+              alt="PaydayCompass"
               className="mx-auto mb-5"
               style={{ width: 200, height: "auto" }}
             />

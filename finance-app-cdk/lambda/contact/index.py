@@ -9,6 +9,7 @@ no separate reply mechanism needed in the app itself.
 import os
 import re
 import json
+import html
 import boto3
 
 from finance_common.http_response import response as _response
@@ -36,7 +37,38 @@ def handler(event, context):
     if not message:
         return _response(400, {"error": "message is required"})
 
-    display_subject = f"[Ledgerline contact] {subject}" if subject else "[Ledgerline contact] New message"
+    display_subject = f"[PaydayCompass contact] {subject}" if subject else "[PaydayCompass contact] New message"
+
+    text_body = f"From: {name} <{email}>\n" + (f"Subject: {subject}\n" if subject else "") + f"\n{message}"
+
+    # User-supplied fields are unauthenticated public-form input - must be
+    # HTML-escaped before interpolation, or a visitor could inject arbitrary
+    # markup/links into the owner's email client. The plain-text body above
+    # doesn't need this (nothing to break out of).
+    safe_name = html.escape(name)
+    safe_email = html.escape(email)
+    safe_subject = html.escape(subject)
+    safe_message = html.escape(message).replace("\n", "<br>")
+    html_body = f"""\
+<div style="font-family: -apple-system, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
+  <h2 style="margin: 0 0 16px; font-size: 18px; color: #1a1a1a;">New message from the PaydayCompass contact form</h2>
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <tr>
+      <td style="padding: 4px 12px 4px 0; color: #666; font-size: 13px; white-space: nowrap;">Name</td>
+      <td style="padding: 4px 0; font-size: 14px;">{safe_name}</td>
+    </tr>
+    <tr>
+      <td style="padding: 4px 12px 4px 0; color: #666; font-size: 13px; white-space: nowrap;">Email</td>
+      <td style="padding: 4px 0; font-size: 14px;"><a href="mailto:{safe_email}" style="color: #1a1a1a;">{safe_email}</a></td>
+    </tr>
+    {f'<tr><td style="padding: 4px 12px 4px 0; color: #666; font-size: 13px; white-space: nowrap;">Subject</td><td style="padding: 4px 0; font-size: 14px;">{safe_subject}</td></tr>' if subject else ""}
+  </table>
+  <div style="padding: 16px; background: #f5f5f5; border-radius: 8px; font-size: 14px; line-height: 1.5;">
+    {safe_message}
+  </div>
+  <p style="margin-top: 20px; font-size: 12px; color: #999;">Reply directly to this email to respond to {safe_name}.</p>
+</div>
+"""
 
     ses_client.send_email(
         Source=os.environ["SES_FROM_ADDRESS"],
@@ -44,7 +76,10 @@ def handler(event, context):
         ReplyToAddresses=[email],
         Message={
             "Subject": {"Data": display_subject},
-            "Body": {"Text": {"Data": f"From: {name} <{email}>\n\n{message}"}},
+            "Body": {
+                "Text": {"Data": text_body},
+                "Html": {"Data": html_body},
+            },
         },
     )
 

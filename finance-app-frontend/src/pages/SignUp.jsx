@@ -77,7 +77,7 @@ export default function SignUpPage() {
     }
   }
 
-  const logoSrc = theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png";
+  const logoSrc = theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png";
 
   // The confirmation-code step stays a simple centered layout even on
   // desktop, same as Login's MFA step - it's a quick, transient step,
@@ -129,7 +129,7 @@ export default function SignUpPage() {
     <div className="w-full max-w-sm">
       {!isDesktop && (
         <div className="text-center mb-8">
-          <img src={logoSrc} alt="Ledgerline" className="mx-auto mb-4" style={{ width: 180, height: "auto", display: "block" }} />
+          <img src={logoSrc} alt="PaydayCompass" className="mx-auto mb-4" style={{ width: 180, height: "auto", display: "block" }} />
         </div>
       )}
 
@@ -232,7 +232,7 @@ export default function SignUpPage() {
         className="flex-1 flex flex-col justify-between p-12"
         style={{ background: colors.surface, borderRight: `1px solid ${colors.border}` }}
       >
-        <img src={logoSrc} alt="Ledgerline" style={{ width: 200, height: "auto" }} />
+        <img src={logoSrc} alt="PaydayCompass" style={{ width: 200, height: "auto" }} />
         <div>
           <p style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 28, fontWeight: 600, lineHeight: 1.3 }} className="mb-3">
             Every account,<br />one honest balance.

@@ -47,7 +47,7 @@ export default function LoginPage() {
     }
   }
 
-  const logoSrc = theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png";
+  const logoSrc = theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png";
 
   if (status === "mfaRequired") {
     return (
@@ -102,7 +102,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <img
             src={logoSrc}
-            alt="Ledgerline"
+            alt="PaydayCompass"
             className="mx-auto mb-4"
             style={{ width: 190, height: "auto", display: "block" }}
           />
@@ -191,7 +191,7 @@ export default function LoginPage() {
         className="flex-1 flex flex-col justify-between p-12"
         style={{ background: colors.surface, borderRight: `1px solid ${colors.border}` }}
       >
-        <img src={logoSrc} alt="Ledgerline" style={{ width: 200, height: "auto" }} />
+        <img src={logoSrc} alt="PaydayCompass" style={{ width: 200, height: "auto" }} />
         <div>
           <p style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 28, fontWeight: 600, lineHeight: 1.3 }} className="mb-3">
             Every account,<br />one honest balance.

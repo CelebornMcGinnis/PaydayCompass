@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="Assets/Full%20Logo_Dark%20Mode.png#gh-dark-mode-only" width="360" alt="Ledgerline">
-  <img src="Assets/Full%20Logo_Light%20Mode.png#gh-light-mode-only" width="360" alt="Ledgerline">
+  <img src="Assets/payday-compass-logo-dark-transparent-15in-600dpi.png#gh-dark-mode-only" width="360" alt="PaydayCompass">
+  <img src="Assets/payday-compass-logo-light-transparent-15in-600dpi.png#gh-light-mode-only" width="360" alt="PaydayCompass">
 </p>
 
 <p align="center">

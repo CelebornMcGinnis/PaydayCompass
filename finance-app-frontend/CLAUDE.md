@@ -1,4 +1,4 @@
-# Ledgerline frontend (finance-app-frontend)
+# PaydayCompass frontend (finance-app-frontend)
 
 React (Vite) + Tailwind + react-router-dom. Talks to the companion
 `finance-app-cdk` backend's API Gateway - see that repo's CLAUDE.md

@@ -1,4 +1,4 @@
-# Ledgerline backend (finance-app-cdk)
+# PaydayCompass backend (finance-app-cdk)
 
 Serverless personal finance app backend. AWS CDK (TypeScript) defining
 API Gateway + Lambda (Python 3.12) + DynamoDB + Cognito + SES. Two

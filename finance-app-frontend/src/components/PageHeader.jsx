@@ -7,6 +7,7 @@ import { useAuth } from "../lib/authContext";
 import { useTheme } from "../lib/ThemeContext";
 import { sharingApi, peerNotificationsApi } from "../lib/apiClient";
 import { useIsDesktop } from "../lib/useIsDesktop";
+import { useHeaderScrollShrink } from "../lib/useHeaderScrollShrink";
 
 /**
  * The standard header for every page except Dashboard (which has its own
@@ -21,17 +22,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isDesktop = useIsDesktop();
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    if (!isDesktop) return;
-    function onScroll() {
-      setScrolled(window.scrollY > 40);
-    }
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [isDesktop]);
+  const scrolled = useHeaderScrollShrink(isDesktop);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
@@ -63,7 +54,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
     return (
       <div className="sticky top-0 z-30" style={{ background: colors.bgTranslucent, backdropFilter: "blur(8px)", borderBottom: `1px solid ${colors.border}` }}>
         <div className="flex items-center justify-between px-5 transition-all" style={{ paddingTop: scrolled ? 10 : 16, paddingBottom: scrolled ? 10 : 12 }}>
-          <img src={theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png"} alt="Ledgerline" style={{ width: scrolled ? 130 : 190, height: "auto", transition: "width 0.2s ease" }} className="shrink-0" />
+          <img src={theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png"} alt="PaydayCompass" style={{ width: scrolled ? 240 : 350, height: "auto", transition: "width 0.2s ease" }} className="shrink-0" />
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
@@ -147,7 +138,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
         <button onClick={() => navigate("/")} aria-label="Back to dashboard" className="p-1 shrink-0 transition-opacity hover:opacity-70" style={{ color: colors.text }}>
           <Home size={18} />
         </button>
-        <img src={theme === "dark" ? "/ledgerline-favicon-dark.png" : "/ledgerline-favicon-light.png"} alt="Ledgerline" style={{ width: 26, height: 26 }} className="shrink-0 ml-1" />
+        <img src={theme === "dark" ? "/paydaycompass-favicon-dark.png" : "/paydaycompass-favicon-light.png"} alt="PaydayCompass" style={{ width: 26, height: 26 }} className="shrink-0 ml-1" />
         <div className="min-w-0">
           <span className="truncate block" style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 18, fontWeight: 600 }}>{title}</span>
           {subtitle && <span className="text-xs" style={{ color: colors.textMuted }}>{subtitle}</span>}

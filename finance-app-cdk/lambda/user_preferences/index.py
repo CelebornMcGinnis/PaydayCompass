@@ -37,6 +37,13 @@ Fields:
                                              {"id": "...", "divisionIds": ["d2", "d3"]}]}.
                                 Same null/customized/fallback semantics as
                                 categoryTrendCharts, just scoped per account.
+  dashboardQuickActions        list or null, default null - user-customized
+                                Dashboard quick-actions selection/order, e.g.
+                                ["/add-expense", "/add-multiple", "/budgets"].
+                                null means "not customized yet" - the
+                                frontend falls back to its built-in default
+                                set. Same null/customized/fallback semantics
+                                as categoryTrendCharts.
 """
 import os
 import json
@@ -53,6 +60,7 @@ DEFAULTS = {
     "lowBalanceThresholdAmount": None,
     "categoryTrendCharts": None,
     "divisionTrendCharts": None,
+    "dashboardQuickActions": None,
 }
 
 

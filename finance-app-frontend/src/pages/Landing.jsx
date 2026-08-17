@@ -24,11 +24,11 @@ export default function LandingPage() {
       <div className="flex items-center justify-between px-5 py-4 max-w-4xl mx-auto">
         <div className="flex items-center gap-2">
           {isDesktop ? (
-            <img src={theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png"} alt="Ledgerline" style={{ width: 150, height: "auto" }} />
+            <img src={theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png"} alt="PaydayCompass" style={{ width: 150, height: "auto" }} />
           ) : (
             <>
-              <img src={theme === "dark" ? "/ledgerline-favicon-dark.png" : "/ledgerline-favicon-light.png"} alt="Ledgerline" style={{ width: 24, height: 24 }} />
-              <span style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 18, fontWeight: 600 }}>Ledgerline</span>
+              <img src={theme === "dark" ? "/paydaycompass-favicon-dark.png" : "/paydaycompass-favicon-light.png"} alt="PaydayCompass" style={{ width: 24, height: 24 }} />
+              <span style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 18, fontWeight: 600 }}>PaydayCompass</span>
             </>
           )}
         </div>
@@ -49,8 +49,8 @@ export default function LandingPage() {
       <div className="px-5 pt-10 pb-16 max-w-2xl mx-auto text-center">
         {!isDesktop && (
           <img
-            src={theme === "dark" ? "/ledgerline-logo-dark.png" : "/ledgerline-logo-light.png"}
-            alt="Ledgerline"
+            src={theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png"}
+            alt="PaydayCompass"
             className="mx-auto mb-8"
             style={{ width: 260, height: "auto" }}
           />
@@ -59,7 +59,7 @@ export default function LandingPage() {
           Every account, one honest balance.
         </h1>
         <p className="text-base mb-8" style={{ color: colors.textMuted }}>
-          Ledgerline pulls your accounts, budgets, bills, and plans into one place - with the kind of category-level
+          PaydayCompass pulls your accounts, budgets, bills, and plans into one place - with the kind of category-level
           precision most banking apps don't bother with.
         </p>
         <div className="flex items-center justify-center gap-3">
@@ -88,7 +88,7 @@ export default function LandingPage() {
           <p className="text-sm" style={{ color: colors.textMuted }}>
             A single receipt at Walmart or Target might really be groceries, clothing, tools, and kitchen supplies all
             at once - but most apps just label the whole thing "Groceries" because that's the store, not the
-            purchase. Ledgerline tracks by what you actually bought, category by category, transaction by
+            purchase. PaydayCompass tracks by what you actually bought, category by category, transaction by
             transaction - even splitting a single purchase across categories when it covers more than one kind of
             expense. That's the difference between a rough guess at where your money goes and actually knowing.
           </p>

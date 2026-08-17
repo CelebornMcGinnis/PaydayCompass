@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repo layout
 
 This repo ("PaydayCompass") holds two independently-deployed projects for
-**Ledgerline**, a serverless personal finance app. They are coupled only
+**PaydayCompass**, a serverless personal finance app. They are coupled only
 through an HTTP API contract, never at build time:
 
 - `finance-app-cdk/` - backend: AWS CDK (TypeScript) defining API Gateway +

@@ -42,7 +42,7 @@ export default function ContactPage() {
         <button onClick={() => navigate(-1)} aria-label="Back" className="p-1 -ml-1 transition-opacity hover:opacity-70" style={{ color: colors.text }}>
           <ArrowLeft size={20} />
         </button>
-        <img src={theme === "dark" ? (isDesktop ? "/ledgerline-logo-dark.png" : "/ledgerline-favicon-dark.png") : (isDesktop ? "/ledgerline-logo-light.png" : "/ledgerline-favicon-light.png")} alt="Ledgerline" style={{ width: isDesktop ? 130 : 24, height: isDesktop ? "auto" : 24 }} />
+        <img src={theme === "dark" ? (isDesktop ? "/paydaycompass-logo-dark.png" : "/paydaycompass-favicon-dark.png") : (isDesktop ? "/paydaycompass-logo-light.png" : "/paydaycompass-favicon-light.png")} alt="PaydayCompass" style={{ width: isDesktop ? 130 : 24, height: isDesktop ? "auto" : 24 }} />
         <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>

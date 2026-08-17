@@ -66,7 +66,7 @@ export function beginTotpSetup(cognitoUser, accountEmail) {
   return new Promise((resolve, reject) => {
     cognitoUser.associateSoftwareToken({
       associateSecretCode: (secretCode) => {
-        const issuer = "Ledgerline";
+        const issuer = "PaydayCompass";
         const otpauthUrl = `otpauth://totp/${issuer}:${encodeURIComponent(accountEmail)}?secret=${secretCode}&issuer=${issuer}`;
         resolve({ secretCode, otpauthUrl });
       },
@@ -77,7 +77,7 @@ export function beginTotpSetup(cognitoUser, accountEmail) {
 
 export function verifyTotpSetup(cognitoUser, code) {
   return new Promise((resolve, reject) => {
-    cognitoUser.verifySoftwareToken(code, "Ledgerline", {
+    cognitoUser.verifySoftwareToken(code, "PaydayCompass", {
       onSuccess: (result) => resolve(result),
       onFailure: (err) => reject(err),
     });

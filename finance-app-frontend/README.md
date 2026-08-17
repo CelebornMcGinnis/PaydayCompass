@@ -1,6 +1,6 @@
 # Finance App — Frontend
 
-![Ledgerline](./public/ledgerline-logo-dark.png)
+![PaydayCompass](./public/paydaycompass-logo-dark.png)
 
 Real, buildable React app (Vite) that talks to the deployed backend from the
 `finance-app-cdk` project. This replaces the mock-data chat-preview artifacts
@@ -210,8 +210,8 @@ Sign Up). See the CDK repo's
 
 ## Real logo and favicons
 
-`public/ledgerline-logo-{light,dark}.png` (full lockup with wordmark) and
-`public/ledgerline-favicon-{light,dark}.png` (mark only) replace the
+`public/paydaycompass-logo-{light,dark}.png` (full lockup with wordmark) and
+`public/paydaycompass-favicon-{light,dark}.png` (mark only) replace the
 placeholder "$" glyph used everywhere during earlier development.
 `index.html` wires both favicon variants via `prefers-color-scheme` media
 queries (dark-mode browsers get the light-linework-on-dark version, and
@@ -262,10 +262,10 @@ silently, until now).
 
 ## Full logo now actually used, not just the favicon
 
-Replaced both `ledgerline-logo-*.png` files with the freshly-provided
+Replaced both `paydaycompass-logo-*.png` files with the freshly-provided
 versions, and wired them into the real branding moments that were
 previously hand-recreating the wordmark with a small icon badge plus
-separately-typed "Ledgerline" text: Login, Sign Up, and Getting Setup's
+separately-typed "PaydayCompass" text: Login, Sign Up, and Getting Setup's
 welcome screen now show the actual full logo image. Landing's hero
 section also gained it, since it had no logo at all before, just the
 tagline. Left the favicon in the three genuinely compact contexts
