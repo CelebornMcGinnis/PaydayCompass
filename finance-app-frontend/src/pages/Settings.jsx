@@ -83,7 +83,7 @@ export default function SettingsPage() {
     setBillingError(null);
     try {
       const { checkoutUrl } = await billingApi.createCheckoutSession({
-        successUrl: `${window.location.origin}/settings?billing=success`,
+        successUrl: `${window.location.origin}/upgrade-success`,
         cancelUrl: `${window.location.origin}/settings?billing=canceled`,
       });
       window.location.href = checkoutUrl;
@@ -281,9 +281,6 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Billing</SectionHeader>
-        {billingBanner === "success" && (
-          <p className="text-sm mb-3 px-1" style={{ color: colors.positive }}>You're on Premium now - thanks!</p>
-        )}
         {billingBanner === "canceled" && (
           <p className="text-sm mb-3 px-1" style={{ color: colors.textMuted }}>Checkout canceled - no changes made.</p>
         )}

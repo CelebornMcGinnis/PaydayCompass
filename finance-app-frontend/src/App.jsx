@@ -16,6 +16,7 @@ import MfaSetupPage from "./pages/MfaSetup";
 import ExternalBankAccountsPage from "./pages/ExternalBankAccounts";
 import ManageRecurringPage from "./pages/ManageRecurring";
 import SettingsPage from "./pages/Settings";
+import UpgradeSuccessPage from "./pages/UpgradeSuccess";
 import GettingSetupPage from "./pages/GettingSetup";
 import PlannedExpensesPage from "./pages/PlannedExpenses";
 import SharingPage from "./pages/Sharing";
@@ -95,6 +96,7 @@ function AppRoutes() {
       <Route path="/external-bank-accounts" element={<RequireAuth><ExternalBankAccountsPage /></RequireAuth>} />
       <Route path="/recurring" element={<RequireAuth><ManageRecurringPage /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+      <Route path="/upgrade-success" element={<RequireAuth><UpgradeSuccessPage /></RequireAuth>} />
       <Route path="/getting-setup" element={<RequireAuth><GettingSetupPage /></RequireAuth>} />
       <Route path="/planned-expenses" element={<RequireAuth><PlannedExpensesPage /></RequireAuth>} />
       <Route path="/sharing" element={<RequireAuth><SharingPage /></RequireAuth>} />
