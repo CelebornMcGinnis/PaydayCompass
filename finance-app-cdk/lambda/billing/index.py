@@ -177,6 +177,18 @@ def _get_current_period_end(sub):
     return items[0].get("current_period_end") if items else None
 
 
+def _is_canceling(sub):
+    """
+    Same class of surprise as _get_current_period_end: the Billing
+    Portal's "cancel at period end" flow was confirmed (by inspecting a
+    real subscription right after canceling through it) to set an
+    explicit cancel_at timestamp rather than flipping cancel_at_period_end
+    to true - checking only the boolean silently missed real
+    cancellations. A subscription is "canceling" if either signal is set.
+    """
+    return bool(sub.get("cancel_at_period_end") or sub.get("cancel_at"))
+
+
 def _handle_checkout_completed(cfg, session):
     user_id = session.get("client_reference_id")
     customer_id = session.get("customer")
@@ -192,7 +204,7 @@ def _handle_checkout_completed(cfg, session):
         "stripeCustomerId": customer_id,
         "stripeSubscriptionId": subscription_id,
         "currentPeriodEnd": _get_current_period_end(sub),
-        "cancelAtPeriodEnd": sub.get("cancel_at_period_end", False),
+        "cancelAtPeriodEnd": _is_canceling(sub),
         "updatedAt": int(time.time()),
     })
 
@@ -221,7 +233,7 @@ def _handle_subscription_updated(sub):
             ":tier": "premium" if status in PREMIUM_STATUSES else "free",
             ":status": status,
             ":cpe": _get_current_period_end(sub),
-            ":cape": sub.get("cancel_at_period_end", False),
+            ":cape": _is_canceling(sub),
             ":ua": int(time.time()),
         },
     )
