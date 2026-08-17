@@ -159,6 +159,24 @@ def _handle_webhook(event):
     return _response(200, {"received": True})
 
 
+def _get_current_period_end(sub):
+    """
+    Newer Stripe API versions moved current_period_end off the top-level
+    Subscription object onto each subscription item (multi-item
+    subscriptions can each bill on a different cycle) - confirmed by
+    directly inspecting a real subscription object against this account's
+    default API version, where the top-level field is always None.
+    Checks top-level first for forward/backward compatibility, falls back
+    to the first item's value, which is correct for this app's
+    single-price subscriptions.
+    """
+    top_level = sub.get("current_period_end")
+    if top_level is not None:
+        return top_level
+    items = (sub.get("items") or {}).get("data") or []
+    return items[0].get("current_period_end") if items else None
+
+
 def _handle_checkout_completed(cfg, session):
     user_id = session.get("client_reference_id")
     customer_id = session.get("customer")
@@ -173,7 +191,7 @@ def _handle_checkout_completed(cfg, session):
         "status": sub.get("status"),
         "stripeCustomerId": customer_id,
         "stripeSubscriptionId": subscription_id,
-        "currentPeriodEnd": sub.get("current_period_end"),
+        "currentPeriodEnd": _get_current_period_end(sub),
         "cancelAtPeriodEnd": sub.get("cancel_at_period_end", False),
         "updatedAt": int(time.time()),
     })
@@ -202,7 +220,7 @@ def _handle_subscription_updated(sub):
         ExpressionAttributeValues={
             ":tier": "premium" if status in PREMIUM_STATUSES else "free",
             ":status": status,
-            ":cpe": sub.get("current_period_end"),
+            ":cpe": _get_current_period_end(sub),
             ":cape": sub.get("cancel_at_period_end", False),
             ":ua": int(time.time()),
         },
