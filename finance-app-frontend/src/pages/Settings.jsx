@@ -313,6 +313,11 @@ export default function SettingsPage() {
             )}
           </Row>
         </Card>
+        {subscription.isPremium && (
+          <p className="text-xs mb-6 px-1 -mt-4" style={{ color: colors.textMuted }}>
+            "Manage billing" opens Stripe's billing page in this tab - look for the back arrow near the top to return here when you're done.
+          </p>
+        )}
 
         <SectionHeader>Account</SectionHeader>
         <Card>
