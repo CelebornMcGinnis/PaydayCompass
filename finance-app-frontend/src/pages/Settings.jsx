@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ShieldCheck, ChevronRight, Mail, Lock, AlertTriangle, Check, Compass } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, ShieldCheck, ChevronRight, Mail, Lock, AlertTriangle, Check, Compass, CreditCard, Sparkles } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
-import { preferencesApi, accountDeletionApi } from "../lib/apiClient";
+import { preferencesApi, accountDeletionApi, billingApi } from "../lib/apiClient";
 import { getCurrentCognitoUser, requestEmailChange, confirmEmailChange, changePassword } from "../lib/cognito";
 import { useAuth } from "../lib/authContext";
+import { useSubscription } from "../lib/useSubscription";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
 
 function SectionHeader({ children }) {
@@ -55,11 +56,56 @@ function Row({ children, onClick, last }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { email, signOut } = useAuth();
+  const subscription = useSubscription();
 
   const [prefs, setPrefs] = useState(null);
   const [error, setError] = useState(null);
   const [savingPref, setSavingPref] = useState(false);
+
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState(null);
+  const billingBanner = searchParams.get("billing"); // "success" | "canceled" | null, set by Stripe's redirect
+
+  useEffect(() => {
+    if (!billingBanner) return;
+    const t = setTimeout(() => {
+      searchParams.delete("billing");
+      setSearchParams(searchParams, { replace: true });
+    }, 4000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billingBanner]);
+
+  async function startCheckout() {
+    setBillingBusy(true);
+    setBillingError(null);
+    try {
+      const { checkoutUrl } = await billingApi.createCheckoutSession({
+        successUrl: `${window.location.origin}/settings?billing=success`,
+        cancelUrl: `${window.location.origin}/settings?billing=canceled`,
+      });
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setBillingError(err.message || "Couldn't start checkout - try again.");
+      setBillingBusy(false);
+    }
+  }
+
+  async function openBillingPortal() {
+    setBillingBusy(true);
+    setBillingError(null);
+    try {
+      const { portalUrl } = await billingApi.createPortalSession({
+        returnUrl: `${window.location.origin}/settings`,
+      });
+      window.location.href = portalUrl;
+    } catch (err) {
+      setBillingError(err.message || "Couldn't open billing management - try again.");
+      setBillingBusy(false);
+    }
+  }
 
   const [emailStep, setEmailStep] = useState("idle"); // "idle" | "editing" | "confirming"
   const [newEmail, setNewEmail] = useState("");
@@ -231,6 +277,43 @@ export default function SettingsPage() {
               <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when someone I've shared an account with adds, edits, or deletes something</p>
             </div>
             {prefs && <Toggle on={prefs.sharedActivityAlertsEnabled} onClick={() => updatePref({ sharedActivityAlertsEnabled: !prefs.sharedActivityAlertsEnabled })} disabled={savingPref} />}
+          </Row>
+        </Card>
+
+        <SectionHeader>Billing</SectionHeader>
+        {billingBanner === "success" && (
+          <p className="text-sm mb-3 px-1" style={{ color: colors.positive }}>You're on Premium now - thanks!</p>
+        )}
+        {billingBanner === "canceled" && (
+          <p className="text-sm mb-3 px-1" style={{ color: colors.textMuted }}>Checkout canceled - no changes made.</p>
+        )}
+        {billingError && <p className="text-sm mb-3 px-1" style={{ color: colors.alert }}>{billingError}</p>}
+        <Card>
+          <Row last>
+            <div className="flex items-center gap-3 min-w-0">
+              {subscription.isPremium ? <Sparkles size={16} style={{ color: colors.accentLight }} /> : <CreditCard size={16} style={{ color: colors.textMuted }} />}
+              <div className="min-w-0">
+                <p className="text-sm" style={{ color: colors.text }}>
+                  {subscription.loading ? "Loading…" : subscription.isPremium ? "Premium" : "Free plan"}
+                </p>
+                {subscription.isPremium && subscription.cancelAtPeriodEnd && (
+                  <p className="text-xs mt-0.5" style={{ color: colors.warning }}>Cancels at the end of the current period</p>
+                )}
+                {!subscription.isPremium && !subscription.loading && (
+                  <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Upgrade to unlock Scenarios and more</p>
+                )}
+              </div>
+            </div>
+            {!subscription.loading && (
+              <button
+                onClick={subscription.isPremium ? openBillingPortal : startCheckout}
+                disabled={billingBusy}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium"
+                style={{ background: subscription.isPremium ? "transparent" : colors.accent, border: subscription.isPremium ? `1px solid ${colors.border}` : "none", color: subscription.isPremium ? colors.text : colors.bg, opacity: billingBusy ? 0.6 : 1 }}
+              >
+                {billingBusy ? "Loading…" : subscription.isPremium ? "Manage billing" : "Upgrade"}
+              </button>
+            )}
           </Row>
         </Card>
 

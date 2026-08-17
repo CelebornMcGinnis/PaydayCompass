@@ -10,6 +10,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import { Observability } from "./observability";
 import { SharedLayer } from "./shared-layer";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 
 interface LambdasProps {
   cfg: EnvironmentConfig;
@@ -37,6 +38,7 @@ export class Lambdas extends Construct {
   public readonly peerNotificationsFn: lambda.Function;
   public readonly userPreferencesFn: lambda.Function;
   public readonly contactFn: lambda.Function;
+  public readonly billingFn: lambda.Function;
   public readonly observability: Observability;
   public readonly sharedLayer: lambda.LayerVersion;
 
@@ -60,6 +62,7 @@ export class Lambdas extends Construct {
       PEER_AGREEMENTS_TABLE: tables.peerAgreementsTable.tableName,
       PEER_NOTIFICATIONS_TABLE: tables.peerNotificationsTable.tableName,
       USER_PREFERENCES_TABLE: tables.userPreferencesTable.tableName,
+      SUBSCRIPTIONS_TABLE: tables.subscriptionsTable.tableName,
       USER_POOL_ID: props.userPool.userPoolId,
       SES_FROM_ADDRESS: cfg.sesFromAddress,
     };
@@ -348,6 +351,7 @@ export class Lambdas extends Construct {
     tables.recurringTable.grantReadData(this.scenariosFn);
     tables.budgetsTable.grantReadData(this.scenariosFn);
     tables.plannedExpensesTable.grantReadData(this.scenariosFn);
+    tables.subscriptionsTable.grantReadData(this.scenariosFn); // premium-tier gate (dev-only exploration)
 
     // --- Peer agreements: mutual consent to send/receive fund-movement notifications ---
     this.peerAgreementsFn = baseFnProps(
@@ -380,6 +384,24 @@ export class Lambdas extends Construct {
       true
     );
     tables.userPreferencesTable.grantReadWriteData(this.userPreferencesFn);
+
+    // --- Billing: Stripe subscription tiers (dev-environment exploration) ---
+    // Secret key / webhook signing secret / Premium Price ID all live in one
+    // Secrets Manager secret, created out-of-band per environment (never by
+    // CDK - a real API key shouldn't pass through CloudFormation params).
+    // Looked up by a deterministic per-environment name rather than a new
+    // EnvironmentConfig field, matching how every other resource here is
+    // named from cfg.resourcePrefix.
+    const stripeSecret = secretsmanager.Secret.fromSecretNameV2(this, "StripeSecret", `${cfg.resourcePrefix}-stripe`);
+    this.billingFn = baseFnProps(
+      "billing-fn",
+      "lambda/billing",
+      "Stripe subscription checkout/portal/webhook - dev-environment exploration",
+      true
+    );
+    this.billingFn.addEnvironment("STRIPE_SECRET_NAME", `${cfg.resourcePrefix}-stripe`);
+    tables.subscriptionsTable.grantReadWriteData(this.billingFn);
+    stripeSecret.grantRead(this.billingFn);
   }
 }
 

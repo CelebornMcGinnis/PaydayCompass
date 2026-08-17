@@ -186,6 +186,19 @@ export class Api extends Construct {
       new apigateway.LambdaIntegration(lambdas.contactFn)
     );
 
+    // /billing - Stripe subscription tiers (dev-environment exploration)
+    const billing = this.restApi.root.addResource("billing");
+    billing.addResource("status").addMethod("GET", new apigateway.LambdaIntegration(lambdas.billingFn), authOptions);
+    billing.addResource("checkout").addMethod("POST", new apigateway.LambdaIntegration(lambdas.billingFn), authOptions);
+    billing.addResource("portal").addMethod("POST", new apigateway.LambdaIntegration(lambdas.billingFn), authOptions);
+    // /billing/webhook - public, no auth (Stripe calls this directly; the
+    // Lambda itself verifies the Stripe-Signature header, same trust model
+    // as /contact being open but validated inside the handler)
+    billing.addResource("webhook").addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(lambdas.billingFn)
+    );
+
     // /planned-expenses
     const plannedExpenses = this.restApi.root.addResource("planned-expenses");
     plannedExpenses.addMethod("GET", new apigateway.LambdaIntegration(lambdas.plannedExpensesFn), authOptions);

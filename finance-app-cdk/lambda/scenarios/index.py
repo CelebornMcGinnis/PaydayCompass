@@ -63,12 +63,28 @@ dynamodb = boto3.resource("dynamodb")
 scenarios_table = dynamodb.Table(os.environ["SCENARIOS_TABLE"])
 recurring_table = dynamodb.Table(os.environ["RECURRING_TABLE"])
 planned_expenses_table = dynamodb.Table(os.environ["PLANNED_EXPENSES_TABLE"])
+subscriptions_table = dynamodb.Table(os.environ["SUBSCRIPTIONS_TABLE"])
+
+# Same premium-counts-as set billing-fn uses - kept in sync manually since
+# this is a single dev-environment exploration, not yet promoted to the
+# shared layer (extract to finance_common if a second Lambda ever needs
+# the same gate, per this repo's own "duplicate once, share once actually
+# needed" convention).
+PREMIUM_STATUSES = {"active", "trialing", "past_due"}
+
+
+def _is_premium(user_id):
+    item = subscriptions_table.get_item(Key={"userId": user_id}).get("Item")
+    return bool(item and item.get("status") in PREMIUM_STATUSES)
 
 
 def handler(event, context):
     method = event["httpMethod"]
     resource = event["resource"]
     user_id = event["requestContext"]["authorizer"]["claims"]["sub"]
+
+    if not _is_premium(user_id):
+        return _response(403, {"error": "Scenarios is a Premium feature - upgrade in Settings to use it.", "premiumRequired": True})
 
     if resource.endswith("/compare") and method == "POST":
         return _compare(user_id, json.loads(event.get("body") or "{}"))

@@ -25,6 +25,9 @@ import { EnvironmentConfig } from "../../config/environments";
  * - PeerAgreements:  PK recipientUserId     SK senderUserId (mutual consent to send/receive
  *                                             fund-movement notifications)
  * - PeerNotifications: PK recipientUserId   SK dueDate#notificationId (fund-movement alerts)
+ * - Subscriptions:   PK userId              (single item per user, same shape as UserPreferences)
+ *                    GSI byStripeCustomerId -> reverse lookup for Stripe webhook events, which
+ *                    carry a Stripe customer/subscription id, not our userId
  */
 export class DataTables extends Construct {
   public readonly accountsTable: dynamodb.Table;
@@ -41,6 +44,7 @@ export class DataTables extends Construct {
   public readonly peerNotificationsTable: dynamodb.Table;
   public readonly userPreferencesTable: dynamodb.Table;
   public readonly paydayHistoryTable: dynamodb.Table;
+  public readonly subscriptionsTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, cfg: EnvironmentConfig) {
     super(scope, id);
@@ -287,6 +291,25 @@ export class DataTables extends Construct {
       timeToLiveAttribute: "expiresAt",
       billingMode: billing,
       removalPolicy,
+    });
+
+    // Subscriptions: one row per user, same absent-means-default shape as
+    // UserPreferences (no row = free tier). GSI supports the reverse
+    // lookup a Stripe webhook needs - subscription-updated/-deleted
+    // events identify the customer/subscription by Stripe's own ids, not
+    // our userId, so there's no way to find the right row by primary key
+    // alone for those events (only checkout.session.completed carries our
+    // userId directly, via client_reference_id).
+    this.subscriptionsTable = new dynamodb.Table(this, "SubscriptionsTable", {
+      tableName: `${cfg.resourcePrefix}-subscriptions`,
+      partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+      billingMode: billing,
+      removalPolicy,
+    });
+    this.subscriptionsTable.addGlobalSecondaryIndex({
+      indexName: "byStripeCustomerId",
+      partitionKey: { name: "stripeCustomerId", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
   }
 }

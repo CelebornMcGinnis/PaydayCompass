@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, X, Check, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Plus, X, Check, Trash2, Lock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import { accountsApi, recurringApi, scenariosApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
+import { useSubscription } from "../lib/useSubscription";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
@@ -46,7 +48,9 @@ function uid() {
 }
 
 export default function ScenariosPage() {
+  const navigate = useNavigate();
   const { theme } = useTheme();
+  const subscription = useSubscription();
   const [savedScenarios, setSavedScenarios] = useState(null);
   const [expenseOptions, setExpenseOptions] = useState([]);
   const [incomeOptions, setIncomeOptions] = useState([]);
@@ -195,6 +199,28 @@ export default function ScenariosPage() {
   }, [trendResult]);
 
   const CHART_LINE_COLORS = [colors.accentLight, "#e8a87c", "#c97b7b", "#8ba888", "#7c9ec9"];
+
+  // Scenarios is the dev-environment proof-of-concept for premium gating -
+  // enforced here (not just hidden) since the real enforcement lives
+  // server-side in scenarios-fn; this is purely the matching UI state so a
+  // free-tier visitor sees a real explanation instead of a generic 403.
+  if (!subscription.loading && !subscription.isPremium) {
+    return (
+      <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>
+        <PageHeader title="Scenarios" />
+        <div className="px-5 pt-10 max-w-md mx-auto text-center">
+          <div className="rounded-2xl p-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <Lock size={28} style={{ color: colors.accentLight }} className="mx-auto mb-3" />
+            <h2 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 18, fontWeight: 600 }} className="mb-2">Scenarios is a Premium feature</h2>
+            <p className="text-sm mb-5" style={{ color: colors.textMuted }}>Test what-if changes — a raise, a new bill — and compare up to 6 scenarios against your real numbers.</p>
+            <button onClick={() => navigate("/settings")} className="rounded-xl px-5 py-2.5 text-sm font-medium" style={{ background: colors.accent, color: colors.bg }}>
+              Upgrade in Settings
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>

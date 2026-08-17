@@ -203,3 +203,10 @@ export const accountDeletionApi = {
 export const contactApi = {
   send: (body) => publicRequest("POST", "/contact", body),
 };
+
+// Stripe subscription tiers - dev-environment exploration.
+export const billingApi = {
+  getStatus: () => api.get("/billing/status"),
+  createCheckoutSession: (body) => api.post("/billing/checkout", body),
+  createPortalSession: (body) => api.post("/billing/portal", body),
+};
