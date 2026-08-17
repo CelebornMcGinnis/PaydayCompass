@@ -40,6 +40,11 @@ function Toggle({ on, onClick, disabled }) {
   );
 }
 
+function formatBillingDate(epochSeconds) {
+  if (!epochSeconds) return null;
+  return new Date(epochSeconds * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
 function Row({ children, onClick, last }) {
   const El = onClick ? "button" : "div";
   return (
@@ -294,7 +299,12 @@ export default function SettingsPage() {
                   {subscription.loading ? "Loading…" : subscription.isPremium ? "Premium" : "Free plan"}
                 </p>
                 {subscription.isPremium && subscription.cancelAtPeriodEnd && (
-                  <p className="text-xs mt-0.5" style={{ color: colors.warning }}>Cancels at the end of the current period</p>
+                  <p className="text-xs mt-0.5" style={{ color: colors.warning }}>
+                    {formatBillingDate(subscription.currentPeriodEnd) ? `Cancels on ${formatBillingDate(subscription.currentPeriodEnd)}` : "Cancels at the end of the current period"}
+                  </p>
+                )}
+                {subscription.isPremium && !subscription.cancelAtPeriodEnd && formatBillingDate(subscription.currentPeriodEnd) && (
+                  <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Renews {formatBillingDate(subscription.currentPeriodEnd)}</p>
                 )}
                 {!subscription.isPremium && !subscription.loading && (
                   <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Upgrade to unlock Scenarios and more</p>
