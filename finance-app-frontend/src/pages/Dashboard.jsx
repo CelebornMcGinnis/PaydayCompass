@@ -201,7 +201,9 @@ export default function DashboardPage() {
       .catch(() => {}); // best-effort - a failed check just means no dot, not a broken dashboard
     peerNotificationsApi
       .list()
-      .then((d) => setHasNotifications((d.notifications || []).length > 0))
+      // Only a currently-active notification should light the dot - see
+      // PageHeader.jsx's identical check for why raw list length is wrong.
+      .then((d) => setHasNotifications((d.notifications || []).some((n) => n.isExpanded)))
       .catch(() => {});
     externalBankAccountsApi
       .list()

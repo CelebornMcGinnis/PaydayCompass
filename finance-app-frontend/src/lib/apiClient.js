@@ -4,7 +4,13 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(status, body) {
-    super(typeof body === "object" ? body.error || JSON.stringify(body) : String(body));
+    // body.error is this app's own Lambda error shape (see
+    // finance_common.http_response); body.message is what API Gateway
+    // itself uses for a rejection that never reaches a Lambda at all
+    // (an expired/invalid auth token, throttling) - falling back to
+    // that instead of raw JSON keeps those readable too, now that the
+    // API Gateway CORS gap no longer hides them as a generic network error.
+    super(typeof body === "object" ? body.error || body.message || JSON.stringify(body) : String(body));
     this.status = status;
     this.body = body;
   }
