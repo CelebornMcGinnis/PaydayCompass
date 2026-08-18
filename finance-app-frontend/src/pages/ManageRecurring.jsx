@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Plus, ChevronRight, ChevronDown, StickyNote } from "lucide-react";
+import { Plus, ChevronRight, ChevronDown, StickyNote, Lock } from "lucide-react";
 import { accountsApi, externalBankAccountsApi, recurringApi, budgetsApi, divisionsApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
+import InfoBubble from "../components/InfoBubble";
+import { useCustomCategories } from "../lib/useCustomCategories";
 
-const CATEGORY_OPTIONS = ["Groceries", "Dining", "Utilities", "Transportation", "Household", "Entertainment", "Health", "Rent/Mortgage"];
+const CATEGORY_OPTIONS = ["Uncategorized", "Groceries", "Dining", "Utilities", "Transportation", "Household", "Entertainment", "Health", "Rent/Mortgage"];
 const FREQUENCIES = [
   { key: "weekly", label: "Weekly" },
   { key: "biweekly", label: "Every 2 weeks" },
@@ -72,7 +74,7 @@ function RecurringListRow({ item, externalAccountsById, accountsById, onSelect }
             : FREQUENCIES.find((f) => f.key === item.frequency)?.label || item.frequency}
           {!item.isIncome && ` · ${item.category}`}
           {` · ${accountName}`}
-          {bankName && ` · drafted from ${bankName}`}
+          {bankName && (item.isIncome ? ` · deposited to ${bankName}` : ` · drafted from ${bankName}`)}
           {item.sharedFromUserId && " · shared"}
         </p>
       </div>
@@ -86,13 +88,14 @@ function RecurringListRow({ item, externalAccountsById, accountsById, onSelect }
   );
 }
 
-function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onAccountAdded, categoryOptions, initial, defaultIsIncome, onCancel, onSave, onDelete, saving }) {
+function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onAccountAdded, categoryOptions, onCustomCategoryAdded, initial, defaultIsIncome, onCancel, onSave, onDelete, saving }) {
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const isEditing = !!initial;
   const [isIncome, setIsIncome] = useState(initial?.isIncome ?? defaultIsIncome ?? false);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [category, setCategory] = useState(initial?.category ?? categoryOptions[0]);
+  const [category, setCategory] = useState(initial?.category ?? "Uncategorized");
   const effectiveCategoryOptions = category && !categoryOptions.includes(category)
     ? [...categoryOptions, category]
     : categoryOptions;
@@ -126,6 +129,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
   const [showBackfillFields, setShowBackfillFields] = useState(false);
   const [backfillFromDate, setBackfillFromDate] = useState(new Date().toISOString().slice(0, 10));
   const [showBackfillConfirm, setShowBackfillConfirm] = useState(false);
+  const [pendingAndAddAnother, setPendingAndAddAnother] = useState(false); // remembers which button triggered the backfill-confirm dialog
 
   // Divisions are scoped to whichever account is currently selected -
   // refetch whenever that changes, and clear any division selection that
@@ -154,6 +158,20 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
+  // If the selected account is itself connected to an external bank
+  // account (see ExternalBankAccounts.jsx / AccountDetail.jsx), this
+  // item's own external-bank-account field should just reflect that
+  // connection rather than offer a second, independently-editable choice
+  // that could silently disagree with it - auto-select it whenever the
+  // selected account changes to one that has a connection. An account
+  // with no connection leaves this field exactly as the user set it.
+  const connectedAccount = accountsList.find((a) => a.accountId === accountId);
+  const connectedExternalId = connectedAccount?.externalBankAccountId || null;
+  useEffect(() => {
+    if (connectedExternalId) setExternalBankAccountId(connectedExternalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedExternalId]);
+
   const effectiveCategory = addingCategory ? customCategory.trim() : category;
   const canSave = description.trim() && parseFloat(amount) > 0 && accountId && (isIncome || effectiveCategory) && (frequency !== "custom" || parseInt(intervalCount, 10) > 0);
   const today = new Date().toISOString().slice(0, 10);
@@ -172,7 +190,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
       intervalUnit: frequency === "custom" ? intervalUnit : undefined,
       weekOfMonth: frequency === "monthly_weekday" ? weekOfMonth : undefined,
       dayOfWeek: frequency === "monthly_weekday" ? dayOfWeek : undefined,
-      externalBankAccountId: isIncome ? undefined : externalBankAccountId || null,
+      externalBankAccountId: externalBankAccountId || null,
       divisionId: divisionId || null,
       nextDueDate,
       keepAsOverdue: !isEditing ? keepAsOverdue : undefined,
@@ -226,7 +244,10 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
       </div>
 
       <div className="mb-4">
-        <FieldLabel>Account</FieldLabel>
+        <div className="flex items-center">
+          <FieldLabel>Account</FieldLabel>
+          <InfoBubble text="The account income is deposited into, or expenses are deducted from." />
+        </div>
         {addingAccount ? (
           <>
             <div className="flex gap-2">
@@ -340,6 +361,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
                 onClick={() => {
                   const name = customCategory.trim();
                   setCategory(name);
+                  onCustomCategoryAdded(name);
                   setAddingCategory(false);
                   setCustomCategory("");
                 }}
@@ -378,10 +400,25 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
         </div>
       )}
 
-      {!isIncome && (
-        <div className="mb-4">
-          <FieldLabel>External bank account <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></FieldLabel>
-          {addingExternalAccount ? (
+      <div className="mb-4">
+        <FieldLabel>External bank account <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></FieldLabel>
+        {connectedExternalId ? (
+          <>
+            <div
+              className="w-full rounded-lg px-3 py-2.5 text-sm flex items-center justify-between"
+              style={{ background: colors.surfaceRaised, border: `1px solid ${colors.border}`, color: colors.textMuted }}
+            >
+              {externalAccounts.find((e) => e.externalBankAccountId === connectedExternalId)?.name || "Connected account"}
+              <Lock size={13} />
+            </div>
+            <p className="text-xs mt-1.5" style={{ color: colors.textMuted }}>
+              Set automatically because {connectedAccount?.name} is connected to this external account.{" "}
+              <button type="button" onClick={() => navigate("/external-bank-accounts")} className="underline" style={{ color: colors.accentLight }}>
+                Manage connections
+              </button>
+            </p>
+          </>
+        ) : addingExternalAccount ? (
             <>
               <div className="flex gap-2">
                 <input
@@ -426,8 +463,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
               options={[{ value: "", label: "Unassigned" }, ...externalAccounts.map((b) => ({ value: b.externalBankAccountId, label: b.name })), { value: "__new__", label: "+ Add a new bank account…" }]}
             />
           )}
-        </div>
-      )}
+      </div>
 
       <div className="mb-4">
         <FieldLabel>Frequency</FieldLabel>
@@ -531,7 +567,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
           disabled={!canSave || saving}
           onClick={() => {
             const needsConfirm = !isEditing && showBackfillFields && backfillFromDate < today;
-            if (needsConfirm) setShowBackfillConfirm(true);
+            if (needsConfirm) { setPendingAndAddAnother(false); setShowBackfillConfirm(true); }
             else onSave(buildPayload());
           }}
           className="flex-1 rounded-xl py-3 text-sm font-medium"
@@ -540,6 +576,22 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
           {saving ? "Saving…" : isEditing ? "Save changes" : "Create"}
         </button>
       </div>
+
+      {!isEditing && (
+        <button
+          type="button"
+          disabled={!canSave || saving}
+          onClick={() => {
+            const needsConfirm = showBackfillFields && backfillFromDate < today;
+            if (needsConfirm) { setPendingAndAddAnother(true); setShowBackfillConfirm(true); }
+            else onSave(buildPayload(), true);
+          }}
+          className="w-full rounded-xl py-3 mb-3 text-sm font-medium"
+          style={{ border: `1px solid ${canSave ? colors.accent : colors.border}`, color: canSave ? colors.accentLight : colors.textMuted, opacity: saving ? 0.6 : 1 }}
+        >
+          {saving ? "Saving…" : "Save & add another"}
+        </button>
+      )}
 
       {showBackfillConfirm && (
         <div className="fixed inset-0 flex items-center justify-center px-6 z-50" style={{ background: "rgba(15,27,45,0.8)" }}>
@@ -554,7 +606,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
               <button type="button" onClick={() => setShowBackfillConfirm(false)} className="flex-1 rounded-lg py-2 text-sm font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>
               <button
                 type="button"
-                onClick={() => { setShowBackfillConfirm(false); onSave({ ...buildPayload(), backfillForTrends: true }); }}
+                onClick={() => { const andAddAnother = pendingAndAddAnother; setShowBackfillConfirm(false); setPendingAndAddAnother(false); onSave({ ...buildPayload(), backfillForTrends: true }, andAddAnother); }}
                 className="flex-1 rounded-lg py-2 text-sm font-medium"
                 style={{ background: colors.accent, color: colors.bg }}
               >
@@ -580,6 +632,7 @@ export default function ManageRecurringPage() {
   const [accounts, setAccounts] = useState(null);
   const [externalAccounts, setExternalAccounts] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState(CATEGORY_OPTIONS);
+  const { customCategories, addCustomCategory } = useCustomCategories();
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
   const newParam = searchParams.get("new"); // "income" | "expense" | null - jumps straight into create, from Dashboard's quick-action buttons
@@ -587,6 +640,8 @@ export default function ManageRecurringPage() {
   const [view, setView] = useState(newParam ? "create" : "list"); // "list" | "create" | "edit"
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [formResetKey, setFormResetKey] = useState(0); // bumped after "Save & add another" to force RecurringForm to remount with blank fields
+  const [savedAndReady, setSavedAndReady] = useState(false);
 
   useEffect(() => {
     if (!editParam || !items) return;
@@ -634,7 +689,7 @@ export default function ManageRecurringPage() {
   const income = (items || []).filter((i) => i.isIncome);
   const expenses = (items || []).filter((i) => !i.isIncome);
 
-  async function saveItem(payload) {
+  async function saveItem(payload, andAddAnother) {
     setSaving(true);
     setError(null);
     try {
@@ -645,10 +700,20 @@ export default function ManageRecurringPage() {
       } else {
         await recurringApi.create(targetAccountId, body);
       }
-      setView("list");
-      setEditingItem(null);
-      if (newParam) navigate("/recurring", { replace: true });
       refresh();
+      if (andAddAnother && !editingItem) {
+        // Stay on the create form instead of returning to the list -
+        // bumping the key forces RecurringForm to remount with fresh
+        // blank state, same "remount via key" fix already used elsewhere
+        // in this app for a form that must reset between items.
+        setFormResetKey((k) => k + 1);
+        setSavedAndReady(true);
+        setTimeout(() => setSavedAndReady(false), 2500);
+      } else {
+        setView("list");
+        setEditingItem(null);
+        if (newParam) navigate("/recurring", { replace: true });
+      }
     } catch (err) {
       setError(err.message || "Couldn't save that recurring item.");
     } finally {
@@ -683,15 +748,18 @@ export default function ManageRecurringPage() {
           onBack={() => { setView("list"); setEditingItem(null); if (newParam) navigate("/recurring", { replace: true }); }}
         />
         {error && <p className="text-sm px-5 pt-4" style={{ color: colors.alert }}>{error}</p>}
+        {savedAndReady && <p className="text-sm px-5 pt-4" style={{ color: colors.positive }}>Saved — add another below.</p>}
         {accounts === null ? (
           <p className="text-sm px-5 pt-4" style={{ color: colors.textMuted }}>Loading…</p>
         ) : (
         <RecurringForm
+          key={formResetKey}
           accounts={accounts}
           externalAccounts={externalAccounts}
           onExternalAccountAdded={(acct) => setExternalAccounts((list) => [...list, acct])}
           onAccountAdded={(acct) => setAccounts((list) => [...(list || []), acct])}
-          categoryOptions={categoryOptions}
+          categoryOptions={[...new Set([...categoryOptions, ...customCategories])]}
+          onCustomCategoryAdded={addCustomCategory}
           initial={editingItem}
           defaultIsIncome={newParam === "income"}
           saving={saving}

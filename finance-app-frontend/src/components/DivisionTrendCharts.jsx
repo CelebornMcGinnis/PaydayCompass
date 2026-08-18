@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Plus, X, Check } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { preferencesApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontMono, formatMoney } from "../lib/theme";
+import { colors, fontDisplay, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
 import InfoBubble from "./InfoBubble";
 
 const LINE_COLORS = [colors.accentLight, colors.positive, colors.warning, colors.alert, "#8A7FD9", colors.textMuted];
@@ -217,6 +217,7 @@ export default function DivisionTrendCharts({ accountId, divisions, transactions
                   <YAxis tick={{ fill: colors.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   {names.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: colors.textMuted }} />}
+                  {chartCrossesZero(data, names) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
                   {names.map((name, i) => (
                     <Line key={name} type="monotone" dataKey={name} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} />
                   ))}

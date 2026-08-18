@@ -158,7 +158,7 @@ def _post_occurrence(template, occurrence_date):
     }
     if is_income and template.get("grossAmount") is not None:
         item["grossAmount"] = decimal.Decimal(str(template["grossAmount"]))  # reference only, not used for balance
-    if not is_income and template.get("externalBankAccountId"):
+    if template.get("externalBankAccountId"):
         item["externalBankAccountId"] = template["externalBankAccountId"]
 
     transactions_table.put_item(Item=item)

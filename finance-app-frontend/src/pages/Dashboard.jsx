@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus } from "lucide-react";
-import { accountsApi, sharingApi, peerNotificationsApi, divisionsApi, paydayApi, preferencesApi, ApiError } from "../lib/apiClient";
+import { accountsApi, sharingApi, peerNotificationsApi, divisionsApi, paydayApi, preferencesApi, externalBankAccountsApi, ApiError } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useAuth } from "../lib/authContext";
 import { useTheme } from "../lib/ThemeContext";
@@ -42,7 +42,7 @@ const AVAILABLE_ACTIONS = (() => {
 })();
 
 
-function AccountCard({ account, divisions, expanded, onToggleExpand, onClick, availableBalance }) {
+function AccountCard({ account, divisions, expanded, onToggleExpand, onClick, availableBalance, linkedExternalName }) {
   const Icon = ICONS[account.type] || Landmark;
   const negative = account.balance < 0;
   const hasDivisions = divisions && divisions.length > 0;
@@ -57,7 +57,10 @@ function AccountCard({ account, divisions, expanded, onToggleExpand, onClick, av
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate" style={{ color: colors.text }}>{account.name}</p>
-              <p className="text-xs capitalize" style={{ color: colors.textMuted }}>{account.type}</p>
+              <p className="text-xs capitalize" style={{ color: colors.textMuted }}>
+                {account.type}
+                {linkedExternalName && <span className="normal-case"> · Connected to {linkedExternalName}</span>}
+              </p>
             </div>
           </div>
           <div className="flex flex-col items-end shrink-0 pl-3">
@@ -115,6 +118,7 @@ export default function DashboardPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
+  const [externalAccountsById, setExternalAccountsById] = useState({});
   const [quickActionIds, setQuickActionIds] = useState(null); // null until loaded (either from preferences or the built-in default)
   const [customizedActions, setCustomizedActions] = useState(false);
   const [editingActions, setEditingActions] = useState(false);
@@ -199,6 +203,10 @@ export default function DashboardPage() {
       .list()
       .then((d) => setHasNotifications((d.notifications || []).length > 0))
       .catch(() => {});
+    externalBankAccountsApi
+      .list()
+      .then((list) => setExternalAccountsById(Object.fromEntries(list.map((e) => [e.externalBankAccountId, e.name]))))
+      .catch(() => {}); // best-effort - the "connected to" label is a nice-to-have, not core account data
     preferencesApi
       .get()
       .then((prefs) => {
@@ -589,6 +597,7 @@ export default function DashboardPage() {
                         onToggleExpand={() => setExpandedAccountId((id) => (id === a.accountId ? null : a.accountId))}
                         onClick={() => { if (!reorderMode) navigate(`/accounts/${a.accountId}`); }}
                         availableBalance={dueByAccount[a.accountId] !== undefined ? a.balance - dueByAccount[a.accountId] : undefined}
+                        linkedExternalName={a.externalBankAccountId ? externalAccountsById[a.externalBankAccountId] : null}
                       />
                     </div>
                   </div>

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, X, Check, Trash2, Lock } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { accountsApi, recurringApi, scenariosApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
+import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
 import { useSubscription } from "../lib/useSubscription";
 import PageHeader from "../components/PageHeader";
@@ -415,6 +415,9 @@ export default function ScenariosPage() {
                     formatter={(v) => formatMoney(v)}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, color: colors.textMuted }} />
+                  {chartCrossesZero(chartData, ["Baseline", ...trendResult.scenarios.filter((s) => s.series).map((s) => s.name)]) && (
+                    <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />
+                  )}
                   <Line type="monotone" dataKey="Baseline" stroke={colors.textMuted} strokeWidth={2} dot={false} strokeDasharray="4 3" />
                   {trendResult.scenarios.map((s, i) => (
                     s.series && <Line key={s.scenarioId || s.name} type="monotone" dataKey={s.name} stroke={CHART_LINE_COLORS[i % CHART_LINE_COLORS.length]} strokeWidth={2} dot={false} />

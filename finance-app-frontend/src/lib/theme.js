@@ -32,3 +32,12 @@ export function formatMoney(n) {
   });
   return `${negative ? "\u2212" : ""}$${abs}`;
 }
+
+// Whether any of the given numeric keys, across any row of chart data,
+// has actually dipped below zero - used to decide whether a chart needs
+// its red zero-line at all, rather than showing one unconditionally on
+// every chart even when the underlying numbers never go negative.
+export function chartCrossesZero(data, keys) {
+  if (!data || data.length === 0) return false;
+  return data.some((row) => keys.some((k) => typeof row[k] === "number" && row[k] < 0));
+}

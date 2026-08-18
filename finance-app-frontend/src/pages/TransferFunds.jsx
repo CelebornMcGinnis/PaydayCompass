@@ -1,15 +1,102 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowRight, ChevronDown, Check } from "lucide-react";
 import { accountsApi, transactionsApi, divisionsApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 
+function DivisionSelect({ accountId, divisions, value, onChange, onDivisionCreated, wholeLabel, prefixLabel }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (adding) {
+    return (
+      <div className="mt-2 rounded-lg p-2" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Division name"
+          className="w-full rounded-lg px-2 py-1.5 text-xs mb-2 focus:outline-none"
+          style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text }}
+        />
+        {error && <p className="text-xs mb-2" style={{ color: colors.alert }}>{error}</p>}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!name.trim() || saving}
+            onClick={async () => {
+              setSaving(true);
+              setError(null);
+              try {
+                const division = await divisionsApi.create(accountId, { name: name.trim() });
+                onDivisionCreated(division);
+                setAdding(false);
+                setName("");
+              } catch (err) {
+                setError(err.message || "Couldn't create that division.");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="rounded-lg px-3 py-1 text-xs font-medium"
+            style={{ background: colors.accent, color: colors.bg, opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? "Adding…" : "Add"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(false);
+              setName("");
+              setError(null);
+            }}
+            className="rounded-lg px-3 py-1 text-xs"
+            style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative mt-2">
+      <select
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === "__add__") {
+            setAdding(true);
+            return;
+          }
+          onChange(e.target.value);
+        }}
+        className="w-full appearance-none rounded-lg px-3 py-2 text-xs focus:outline-none"
+        style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
+      >
+        <option value="">{wholeLabel}</option>
+        {divisions.map((d) => (
+          <option key={d.divisionId} value={d.divisionId}>
+            {prefixLabel}: {d.name}
+          </option>
+        ))}
+        <option value="__add__">+ Add new division…</option>
+      </select>
+      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
+    </div>
+  );
+}
+
 export default function TransferFundsPage() {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const presetFromAccountId = searchParams.get("accountId");
+
   const [accounts, setAccounts] = useState(null);
-  const [fromAccountId, setFromAccountId] = useState("");
+  const [fromAccountId, setFromAccountId] = useState(presetFromAccountId || "");
   const [toAccountId, setToAccountId] = useState("");
   const [fromDivisionId, setFromDivisionId] = useState("");
   const [toDivisionId, setToDivisionId] = useState("");
@@ -19,7 +106,8 @@ export default function TransferFundsPage() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [done, setDone] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
+  const [history, setHistory] = useState(null);
 
   useEffect(() => {
     if (!fromAccountId) {
@@ -72,13 +160,44 @@ export default function TransferFundsPage() {
         // can't actually touch.
         const eligible = accts.filter((a) => !a.sharedFromUserId || a.sharedPermission === "edit");
         setAccounts(eligible);
-        if (eligible.length >= 2) {
-          setFromAccountId(eligible[0].accountId);
-          setToAccountId(eligible[1].accountId);
-        }
       })
       .catch(() => setError("Couldn't load your accounts."));
   }, []);
+
+  useEffect(() => {
+    if (!accounts) return;
+    let cancelled = false;
+    const byId = {};
+    accounts.forEach((a) => {
+      byId[a.accountId] = a.name;
+    });
+    Promise.all(accounts.map((a) => transactionsApi.list(a.accountId).catch(() => [])))
+      .then((perAccount) => {
+        if (cancelled) return;
+        const seen = new Set();
+        const rows = [];
+        perAccount.flat().forEach((txn) => {
+          if (!txn.isTransfer || txn.direction !== "debit" || seen.has(txn.transferId)) return;
+          seen.add(txn.transferId);
+          rows.push({
+            transferId: txn.transferId,
+            createdAt: txn.createdAt,
+            amount: txn.amount,
+            description: txn.description,
+            fromName: byId[txn.accountId] || "Unknown account",
+            toName: byId[txn.transferCounterpartyAccountId] || "Unknown account",
+          });
+        });
+        rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+        setHistory(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accounts]);
 
   const fromAccount = (accounts || []).find((a) => a.accountId === fromAccountId);
   const toAccount = (accounts || []).find((a) => a.accountId === toAccountId);
@@ -94,7 +213,7 @@ export default function TransferFundsPage() {
     setSaving(true);
     setError(null);
     try {
-      await transactionsApi.transfer({
+      const result = await transactionsApi.transfer({
         fromAccountId,
         toAccountId,
         fromDivisionId: fromDivisionId || undefined,
@@ -102,8 +221,25 @@ export default function TransferFundsPage() {
         amount: parseFloat(amount),
         description: description.trim(),
       });
-      setDone(true);
-      setTimeout(() => navigate("/"), 1200);
+      setConfirmation({
+        amount: parseFloat(amount),
+        description: description.trim(),
+        fromName: fromAccount ? fromAccount.name : "",
+        toName: toAccount ? toAccount.name : "",
+      });
+      setHistory((current) => [
+        {
+          transferId: result.transferId,
+          createdAt: result.out.createdAt,
+          amount: result.out.amount,
+          description: result.out.description,
+          fromName: fromAccount ? fromAccount.name : "Unknown account",
+          toName: toAccount ? toAccount.name : "Unknown account",
+        },
+        ...(current || []),
+      ]);
+      setAmount("");
+      setDescription("");
     } catch (err) {
       setError(err.message || "Couldn't complete that transfer.");
     } finally {
@@ -124,6 +260,28 @@ export default function TransferFundsPage() {
         )}
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
+        {confirmation && (
+          <div className="rounded-2xl p-5 mb-5 flex items-start gap-3" style={{ background: colors.surface, border: `1px solid ${colors.accent}` }}>
+            <div className="flex items-center justify-center rounded-full shrink-0" style={{ width: 24, height: 24, background: colors.accent, color: colors.bg }}>
+              <Check size={14} />
+            </div>
+            <div>
+              <p className="text-sm font-medium mb-1" style={{ color: colors.text }}>
+                Transferred {formatMoney(confirmation.amount)} from {confirmation.fromName} to {confirmation.toName}
+              </p>
+              {confirmation.description && <p className="text-xs" style={{ color: colors.textMuted }}>{confirmation.description}</p>}
+              <button
+                type="button"
+                onClick={() => setConfirmation(null)}
+                className="text-xs underline mt-2"
+                style={{ color: colors.accentLight }}
+              >
+                Make another transfer
+              </button>
+            </div>
+          </div>
+        )}
+
         {accounts && accounts.length >= 2 && (
           <>
             <div className="mb-4">
@@ -135,6 +293,7 @@ export default function TransferFundsPage() {
                   className="w-full appearance-none rounded-lg px-3 py-2.5 text-sm focus:outline-none"
                   style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
                 >
+                  <option value="">Choose an account</option>
                   {accounts.map((a) => <option key={a.accountId} value={a.accountId}>{a.name}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
@@ -145,19 +304,19 @@ export default function TransferFundsPage() {
                   {fromDivision && ` · ${fromDivision.name}: ${formatMoney(fromDivision.balance)}`}
                 </p>
               )}
-              {fromDivisions.length > 0 && (
-                <div className="relative mt-2">
-                  <select
-                    value={fromDivisionId}
-                    onChange={(e) => setFromDivisionId(e.target.value)}
-                    className="w-full appearance-none rounded-lg px-3 py-2 text-xs focus:outline-none"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                  >
-                    <option value="">From the whole account, not a specific division</option>
-                    {fromDivisions.map((d) => <option key={d.divisionId} value={d.divisionId}>From division: {d.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
-                </div>
+              {fromAccountId && (
+                <DivisionSelect
+                  accountId={fromAccountId}
+                  divisions={fromDivisions}
+                  value={fromDivisionId}
+                  onChange={setFromDivisionId}
+                  onDivisionCreated={(division) => {
+                    setFromDivisions((current) => [...current, division]);
+                    setFromDivisionId(division.divisionId);
+                  }}
+                  wholeLabel="From the whole account, not a specific division"
+                  prefixLabel="From division"
+                />
               )}
             </div>
 
@@ -176,6 +335,7 @@ export default function TransferFundsPage() {
                   className="w-full appearance-none rounded-lg px-3 py-2.5 text-sm focus:outline-none"
                   style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
                 >
+                  <option value="">Choose an account</option>
                   {accounts.map((a) => <option key={a.accountId} value={a.accountId}>{a.name}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
@@ -191,19 +351,19 @@ export default function TransferFundsPage() {
                   {fromAccountId === toAccountId ? "Choose a different division, or a different account." : "Choose two different accounts."}
                 </p>
               )}
-              {toDivisions.length > 0 && (
-                <div className="relative mt-2">
-                  <select
-                    value={toDivisionId}
-                    onChange={(e) => setToDivisionId(e.target.value)}
-                    className="w-full appearance-none rounded-lg px-3 py-2 text-xs focus:outline-none"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                  >
-                    <option value="">Into the whole account, not a specific division</option>
-                    {toDivisions.map((d) => <option key={d.divisionId} value={d.divisionId}>Into division: {d.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
-                </div>
+              {toAccountId && (
+                <DivisionSelect
+                  accountId={toAccountId}
+                  divisions={toDivisions}
+                  value={toDivisionId}
+                  onChange={setToDivisionId}
+                  onDivisionCreated={(division) => {
+                    setToDivisions((current) => [...current, division]);
+                    setToDivisionId(division.divisionId);
+                  }}
+                  wholeLabel="Into the whole account, not a specific division"
+                  prefixLabel="Into division"
+                />
               )}
             </div>
 
@@ -242,7 +402,7 @@ export default function TransferFundsPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!canSave || saving || done}
+              disabled={!canSave || saving}
               className="w-full rounded-xl py-3 text-sm font-medium transition-opacity"
               style={{
                 background: canSave ? colors.accent : colors.surfaceRaised,
@@ -251,9 +411,41 @@ export default function TransferFundsPage() {
                 opacity: saving ? 0.6 : 1,
               }}
             >
-              {done ? "Transferred" : saving ? "Transferring…" : "Transfer funds"}
+              {saving ? "Transferring…" : "Transfer funds"}
             </button>
           </>
+        )}
+
+        {history && history.length > 0 && (
+          <div className="mt-8">
+            <p className="text-xs uppercase tracking-wide mb-2 px-1" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Transfer history</p>
+            <div className="rounded-2xl overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                      <th className="text-left px-3 py-2 font-medium" style={{ color: colors.textMuted }}>Date</th>
+                      <th className="text-left px-3 py-2 font-medium" style={{ color: colors.textMuted }}>From</th>
+                      <th className="text-left px-3 py-2 font-medium" style={{ color: colors.textMuted }}>To</th>
+                      <th className="text-right px-3 py-2 font-medium" style={{ color: colors.textMuted }}>Amount</th>
+                      <th className="text-left px-3 py-2 font-medium" style={{ color: colors.textMuted }}>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((t) => (
+                      <tr key={t.transferId} style={{ borderTop: `1px solid ${colors.border}` }}>
+                        <td className="px-3 py-2" style={{ color: colors.text, fontFamily: fontMono }}>{t.createdAt?.slice(0, 10)}</td>
+                        <td className="px-3 py-2" style={{ color: colors.text }}>{t.fromName}</td>
+                        <td className="px-3 py-2" style={{ color: colors.text }}>{t.toName}</td>
+                        <td className="text-right px-3 py-2" style={{ color: colors.text, fontFamily: fontMono }}>{formatMoney(t.amount)}</td>
+                        <td className="px-3 py-2" style={{ color: colors.textMuted }}>{t.description || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

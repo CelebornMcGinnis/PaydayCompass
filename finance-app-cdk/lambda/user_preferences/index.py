@@ -44,6 +44,17 @@ Fields:
                                 frontend falls back to its built-in default
                                 set. Same null/customized/fallback semantics
                                 as categoryTrendCharts.
+  customCategories             list of strings, default [] - category names
+                                typed via "+ Add new category" on Add
+                                Expense, Mass Add, Planned Expenses, or
+                                Recurring. Previously each of those pages
+                                only ever updated its own local dropdown
+                                state, so a category typed on one page (or
+                                even the SAME page after a reload) vanished
+                                everywhere else - saved here so it's a real,
+                                shared source of truth every category
+                                dropdown in the app merges in, same as
+                                every other preference in this file.
 """
 import os
 import json
@@ -61,6 +72,7 @@ DEFAULTS = {
     "categoryTrendCharts": None,
     "divisionTrendCharts": None,
     "dashboardQuickActions": None,
+    "customCategories": [],
 }
 
 

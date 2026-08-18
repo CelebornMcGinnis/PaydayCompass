@@ -7,15 +7,23 @@ for the API contract and backend conventions.
 ## Structure
 
 - `src/pages/` - one file per route, most wrapped in `<RequireAuth>`
-  in `App.jsx`. A few (`Landing`, `Login`, `SignUp`, `Contact`) are
-  deliberately public and must not depend on anything that assumes a
-  signed-in user (no `PageHeader`, no `useAuth`-dependent hooks).
+  in `App.jsx`. A few (`Landing`, `Login`, `SignUp`) are deliberately
+  public and must not depend on anything that assumes a signed-in user
+  (no `useAuth`-dependent hooks beyond reading `status`). `Contact` is
+  also reachable signed-out (linked from `Landing`) but does use
+  `PageHeader` - see below for how that stays safe.
 - `src/components/PageHeader.jsx` - the shared header used by every
-  authenticated page: logo, back button, menu. Supports an optional
-  `onBack` override for a page that needs custom back behavior instead
-  of the default `navigate(-1)` (e.g. resetting local form state).
-  Desktop and mobile render genuinely different layouts (see
-  `useIsDesktop`), including a scroll-triggered shrink on desktop.
+  authenticated page (and `Contact`, which is reachable signed-out
+  too): logo, back button, menu. Supports an optional `onBack` override
+  for a page that needs custom back behavior instead of the default
+  `navigate(-1)` (e.g. resetting local form state). Desktop and mobile
+  render genuinely different layouts (see `useIsDesktop`), including a
+  scroll-triggered shrink on desktop. Internally checks `useAuth()`'s
+  `status` and, when not `"signedIn"`, skips the `sharingApi`/
+  `peerNotificationsApi` lookups and hides the hamburger menu (nav
+  links + sign out) entirely - keeps back/home/logo/theme-toggle
+  consistent everywhere without ever showing a guest an authenticated
+  menu or letting a failed auth-only request surface as an error.
 - `src/lib/apiClient.js` - `request()` (authenticated, attaches the
   Cognito ID token) and `publicRequest()` (unauthenticated, currently
   only used by `/contact`). Both distinguish a raw network-level
