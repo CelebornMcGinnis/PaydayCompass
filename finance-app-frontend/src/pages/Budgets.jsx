@@ -8,9 +8,10 @@ import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 import InfoBubble from "../components/InfoBubble";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useTheme } from "../lib/ThemeContext";
+import { useCustomCategories } from "../lib/useCustomCategories";
 
 
-const CATEGORY_OPTIONS = ["Groceries", "Dining", "Utilities", "Transportation", "Household", "Entertainment", "Health", "Rent/Mortgage"];
+const BASE_CATEGORY_OPTIONS = ["Groceries", "Dining", "Utilities", "Transportation", "Household", "Entertainment", "Health", "Rent/Mortgage"];
 const FREQUENCY_OPTIONS = [
   { key: "monthly", label: "Monthly" },
   { key: "biweekly", label: "Biweekly" },
@@ -71,9 +72,15 @@ function BudgetCard({ budget, onClick }) {
 function NewBudgetForm({ initial, accounts, onAccountAdded, onCancel, onSave, onDelete, saving }) {
   const { theme } = useTheme();
   const isEditing = !!initial;
-  const [category, setCategory] = useState(initial?.category ?? CATEGORY_OPTIONS[0]);
+  const [category, setCategory] = useState(initial?.category ?? BASE_CATEGORY_OPTIONS[0]);
   const [addingCategory, setAddingCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState(BASE_CATEGORY_OPTIONS);
+  const { customCategories, addCustomCategory } = useCustomCategories();
+  useEffect(() => {
+    if (customCategories.length === 0) return;
+    setCategoryOptions((opts) => [...new Set([...opts, ...customCategories])]);
+  }, [customCategories]);
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : "");
   const [frequency, setFrequency] = useState(initial?.frequency ?? "monthly");
   const [accountId, setAccountId] = useState(initial?.accountId ?? "");
@@ -157,7 +164,7 @@ function NewBudgetForm({ initial, accounts, onAccountAdded, onCancel, onSave, on
             className="w-full appearance-none rounded-lg px-3 py-2.5 text-sm focus:outline-none"
             style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
           >
-            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
             <option value="__new__">+ Add a new category…</option>
           </select>
           <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
@@ -325,6 +332,7 @@ function NewBudgetForm({ initial, accounts, onAccountAdded, onCancel, onSave, on
         type="button"
         disabled={!amount || parseFloat(amount) <= 0 || !effectiveCategory || saving}
         onClick={() => {
+          if (addingCategory) addCustomCategory(effectiveCategory);
           const isPastDate = !isEditing && startDate < new Date().toISOString().slice(0, 10);
           if (isPastDate) setShowBackfillConfirm(true);
           else onSave({ category: effectiveCategory, amount: parseFloat(amount), frequency, accountId: accountId || null, divisionId: divisionId || null, alertsEnabled, startDate });
@@ -348,7 +356,7 @@ function NewBudgetForm({ initial, accounts, onAccountAdded, onCancel, onSave, on
               <button type="button" onClick={() => setShowBackfillConfirm(false)} className="flex-1 rounded-lg py-2 text-sm font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>
               <button
                 type="button"
-                onClick={() => { setShowBackfillConfirm(false); onSave({ category: effectiveCategory, amount: parseFloat(amount), frequency, accountId: accountId || null, divisionId: divisionId || null, alertsEnabled, startDate, backfillForTrends: true }); }}
+                onClick={() => { if (addingCategory) addCustomCategory(effectiveCategory); setShowBackfillConfirm(false); onSave({ category: effectiveCategory, amount: parseFloat(amount), frequency, accountId: accountId || null, divisionId: divisionId || null, alertsEnabled, startDate, backfillForTrends: true }); }}
                 className="flex-1 rounded-lg py-2 text-sm font-medium"
                 style={{ background: colors.accent, color: colors.bg }}
               >

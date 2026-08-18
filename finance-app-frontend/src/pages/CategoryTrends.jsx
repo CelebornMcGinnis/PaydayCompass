@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, X, Check } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
-import { accountsApi, transactionsApi, preferencesApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
+import { accountsApi, transactionsApi, preferencesApi, budgetsApi } from "../lib/apiClient";
+import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero, budgetMonthlyEquivalent } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import InfoBubble from "../components/InfoBubble";
@@ -96,6 +96,7 @@ function AddChartForm({ allCategories, onCancel, onAdd }) {
 export default function CategoryTrendsPage() {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState(null);
+  const [budgetByCategory, setBudgetByCategory] = useState({});
   const [charts, setCharts] = useState(null); // null until loaded (either from preferences or auto-computed)
   const [customized, setCustomized] = useState(false); // has the user ever added/removed a chart this session
   const [error, setError] = useState(null);
@@ -107,10 +108,16 @@ export default function CategoryTrendsPage() {
     Promise.all([
       accountsApi.list().then((accounts) => Promise.all(accounts.map((a) => transactionsApi.list(a.accountId).catch(() => [])))),
       preferencesApi.get(),
+      // Best-effort - the budget line is a nice-to-have overlay, not core
+      // data, so a failure here shouldn't block the trend charts themselves.
+      budgetsApi.list().catch(() => []),
     ])
-      .then(([perAccount, prefs]) => {
+      .then(([perAccount, prefs, budgets]) => {
         if (cancelled) return;
         setTransactions(perAccount.flat());
+        setBudgetByCategory(
+          Object.fromEntries(budgets.map((b) => [b.category, budgetMonthlyEquivalent(b.amount, b.frequency || "monthly")]))
+        );
         if (prefs.categoryTrendCharts) {
           setCharts(prefs.categoryTrendCharts);
           setCustomized(true);
@@ -205,7 +212,7 @@ export default function CategoryTrendsPage() {
         <PageBlurb>Spending by category over time, from 3 months back to 2 years.</PageBlurb>
         <div className="flex items-center mb-2 px-1">
           <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Spending by category over time</h3>
-          <InfoBubble text="Across every account, month by month. Starts with your top 5 categories by spend, one chart each - add your own charts (combining categories if you want) or remove any of them. Your layout is saved and stays consistent everywhere you sign in." />
+          <InfoBubble text="Across every account, month by month. Starts with your top 5 categories by spend, one chart each - add your own charts (combining categories if you want) or remove any of them. Your layout is saved and stays consistent everywhere you sign in. A dashed line marks a category's budget (normalized to a monthly figure), in that category's own color, when one exists." />
         </div>
 
         <div className="flex gap-1.5 mb-4 px-1">
@@ -287,6 +294,18 @@ export default function CategoryTrendsPage() {
                   <Tooltip content={<CustomTooltip />} />
                   {chart.categories.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: colors.textMuted }} />}
                   {chartCrossesZero(chartData, chart.categories) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
+                  {chart.categories.map((cat, i) =>
+                    budgetByCategory[cat] != null ? (
+                      <ReferenceLine
+                        key={`${cat}-budget`}
+                        y={budgetByCategory[cat]}
+                        stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                        strokeDasharray="4 3"
+                        strokeWidth={1.5}
+                        ifOverflow="extendDomain"
+                      />
+                    ) : null
+                  )}
                   {chart.categories.map((cat, i) => (
                     <Line key={cat} type="monotone" dataKey={cat} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} connectNulls />
                   ))}

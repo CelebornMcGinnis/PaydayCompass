@@ -5,6 +5,7 @@ import { accountsApi, transactionsApi, divisionsApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
+import DivisionSelect from "../components/DivisionSelect";
 import { useCustomCategories } from "../lib/useCustomCategories";
 
 const CATEGORIES = ["Uncategorized", "Deposit", "Groceries", "Household", "Dining", "Transportation", "Utilities", "Entertainment", "Health", "Rent/Mortgage"];
@@ -177,23 +178,23 @@ export default function AddExpensePage() {
               </div>
             </div>
 
-            {divisions.length > 0 && (
+            {accountId && (
               <div className="mb-5">
                 <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>
                   {direction === "credit" && splits.length > 0 ? "Primary division" : "Division"} <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span>
                 </label>
-                <div className="relative">
-                  <select
-                    value={divisionId}
-                    onChange={(e) => setDivisionId(e.target.value)}
-                    className="w-full appearance-none rounded-lg px-3 py-2.5 text-sm focus:outline-none"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                  >
-                    <option value="">{direction === "credit" ? "Don't add to a division" : "Don't deduct from a division"}</option>
-                    {divisions.map((d) => <option key={d.divisionId} value={d.divisionId}>{d.name}</option>)}
-                  </select>
-                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
-                </div>
+                <DivisionSelect
+                  accountId={accountId}
+                  divisions={divisions}
+                  value={divisionId}
+                  onChange={setDivisionId}
+                  onDivisionCreated={(division) => {
+                    setDivisions((current) => [...current, division]);
+                    setDivisionId(division.divisionId);
+                  }}
+                  wholeLabel={direction === "credit" ? "Don't add to a division" : "Don't deduct from a division"}
+                  compact={false}
+                />
               </div>
             )}
 
@@ -352,19 +353,18 @@ export default function AddExpensePage() {
                   className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none"
                   style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
                 />
-                {direction === "credit" && divisions.length > 0 && (
-                  <div className="relative mt-2">
-                    <select
-                      value={s.divisionId || ""}
-                      onChange={(e) => updateSplit(s.id, { ...s, divisionId: e.target.value || undefined })}
-                      className="w-full appearance-none rounded-lg px-2.5 py-2 text-xs focus:outline-none"
-                      style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                    >
-                      <option value="">This split's division (optional)</option>
-                      {divisions.map((d) => <option key={d.divisionId} value={d.divisionId}>{d.name}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
-                  </div>
+                {direction === "credit" && accountId && (
+                  <DivisionSelect
+                    accountId={accountId}
+                    divisions={divisions}
+                    value={s.divisionId || ""}
+                    onChange={(divisionId) => updateSplit(s.id, { ...s, divisionId: divisionId || undefined })}
+                    onDivisionCreated={(division) => {
+                      setDivisions((current) => [...current, division]);
+                      updateSplit(s.id, { ...s, divisionId: division.divisionId });
+                    }}
+                    wholeLabel="This split's division (optional)"
+                  />
                 )}
               </div>
             ))}
@@ -394,13 +394,13 @@ export default function AddExpensePage() {
               disabled={total <= 0 || overAllocated || saving || !accountId}
               className="flex-1 rounded-xl py-3 text-sm font-medium transition-opacity"
               style={{
-                background: total <= 0 || overAllocated || !accountId ? colors.surfaceRaised : colors.accent,
+                background: total <= 0 || overAllocated || !accountId ? colors.surfaceRaised : direction === "credit" ? colors.accent : colors.alert,
                 color: total <= 0 || overAllocated || !accountId ? colors.textMuted : colors.bg,
                 cursor: total <= 0 || overAllocated ? "not-allowed" : "pointer",
                 opacity: saving ? 0.6 : 1,
               }}
             >
-              {saving ? "Saving…" : direction === "credit" ? "Save deposit" : "Save expense"}
+              {saving ? "Submitting…" : direction === "credit" ? "Submit deposit" : "Submit expense"}
             </button>
             <button
               type="button"
