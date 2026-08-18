@@ -12,8 +12,15 @@ const PASSWORD_RULES = [
   { test: (p) => /[a-z]/.test(p), label: "A lowercase letter" },
   { test: (p) => /[A-Z]/.test(p), label: "An uppercase letter" },
   { test: (p) => /[0-9]/.test(p), label: "A number" },
-  { test: (p) => /[^A-Za-z0-9]/.test(p), label: "A symbol" },
+  { test: (p) => /[^A-Za-z0-9\s]/.test(p), label: "A symbol" },
+  { test: (p) => !/\s/.test(p), label: "No spaces" },
 ];
+
+// Native <input type="email"> validation deliberately allows a domain
+// with no dot at all (e.g. "user@localhost" is spec-valid, for intranet
+// use) - too permissive for a real signup. Same pattern as the backend's
+// own EMAIL_RE in lambda/contact/index.py, for consistent semantics.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignUpPage() {
   const { theme } = useTheme();
@@ -30,7 +37,8 @@ export default function SignUpPage() {
   const [resent, setResent] = useState(false);
 
   const passwordOk = PASSWORD_RULES.every((r) => r.test(password));
-  const canSubmit = email.trim() && passwordOk && password === confirmPassword;
+  const emailOk = EMAIL_RE.test(email.trim());
+  const canSubmit = emailOk && passwordOk && password === confirmPassword;
 
   async function handleSignUp(e) {
     e.preventDefault();
@@ -70,6 +78,7 @@ export default function SignUpPage() {
     setError(null);
     try {
       await resendConfirmationCode(email.trim());
+      setCode(""); // the old code is a fresh one's been sent - stale/invalid input shouldn't linger
       setResent(true);
       setTimeout(() => setResent(false), 4000);
     } catch (err) {
@@ -146,9 +155,12 @@ export default function SignUpPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded-lg px-3 py-2.5 mb-4 text-sm focus:outline-none"
-            style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
+            className="w-full rounded-lg px-3 py-2.5 mb-3 text-sm focus:outline-none"
+            style={{ background: colors.surface, border: `1px solid ${email && !emailOk ? colors.alert : colors.border}`, color: colors.text }}
           />
+          {email && !emailOk && (
+            <p className="text-xs mb-3" style={{ color: colors.alert }}>Enter a valid email address</p>
+          )}
 
           <label className="block text-xs uppercase tracking-wide mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Password</label>
           <input
