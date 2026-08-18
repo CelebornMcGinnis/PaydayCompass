@@ -41,3 +41,12 @@ export function chartCrossesZero(data, keys) {
   if (!data || data.length === 0) return false;
   return data.some((row) => keys.some((k) => typeof row[k] === "number" && row[k] < 0));
 }
+
+// Mirrors finance_common.budget_frequency.MONTHLY_EQUIVALENT_FACTOR - a
+// budget's `amount` is a cap for one period of its `frequency`, and
+// charts that bucket spending by calendar month (Category Trends) need
+// that normalized onto the same monthly basis to overlay it.
+const BUDGET_MONTHLY_EQUIVALENT_FACTOR = { monthly: 1, weekly: 4.348, biweekly: 2.174 };
+export function budgetMonthlyEquivalent(amount, frequency) {
+  return amount * (BUDGET_MONTHLY_EQUIVALENT_FACTOR[frequency] ?? 1);
+}
