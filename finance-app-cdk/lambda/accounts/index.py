@@ -31,6 +31,7 @@ sharing_table = dynamodb.Table(os.environ["SHARING_TABLE"])
 recurring_table = dynamodb.Table(os.environ["RECURRING_TABLE"])
 budgets_table = dynamodb.Table(os.environ["BUDGETS_TABLE"])
 planned_expenses_table = dynamodb.Table(os.environ["PLANNED_EXPENSES_TABLE"])
+external_bank_accounts_table = dynamodb.Table(os.environ["EXTERNAL_BANK_ACCOUNTS_TABLE"])
 
 VALID_ACCOUNT_TYPES = {"checking", "savings", "credit", "investment", "other"}
 
@@ -196,10 +197,25 @@ def _update_account(user_id, account_id, body):
     # externalBankAccountId links this internal account to a real-world
     # bank account reference (the same user-maintained labels already
     # usable on recurring items) - explicitly nullable, so clearing the
-    # connection needs its own REMOVE, not a SET to a null value.
+    # connection needs its own REMOVE, not a SET to a null value. The
+    # relationship is one-to-one: an external bank account label can be
+    # connected to at most one internal account at a time.
     clear_external_account = "externalBankAccountId" in body and not body["externalBankAccountId"]
     if "externalBankAccountId" in body and body["externalBankAccountId"]:
-        updates["externalBankAccountId"] = body["externalBankAccountId"]
+        ext_id = body["externalBankAccountId"]
+        ext_item = external_bank_accounts_table.get_item(Key={"userId": user_id, "externalBankAccountId": ext_id}).get("Item")
+        if not ext_item:
+            return _response(400, {"error": "That external bank account doesn't exist."})
+
+        other_accounts = accounts_table.query(
+            KeyConditionExpression="userId = :uid",
+            ExpressionAttributeValues={":uid": user_id},
+        ).get("Items", [])
+        conflict = next((a for a in other_accounts if a.get("externalBankAccountId") == ext_id and a["accountId"] != account_id), None)
+        if conflict:
+            return _response(409, {"error": f'"{ext_item["name"]}" is already connected to {conflict["name"]} - each external bank account can only be connected to one account.'})
+
+        updates["externalBankAccountId"] = ext_id
 
     if not updates and not clear_external_account:
         return _response(400, {"error": "nothing to update"})

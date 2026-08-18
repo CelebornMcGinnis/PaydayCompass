@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { budgetsApi } from "../lib/apiClient";
-import { colors, fontBody, fontMono, formatMoney } from "../lib/theme";
+import { colors, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import InfoBubble from "../components/InfoBubble";
@@ -124,6 +124,7 @@ export default function ProjectedVsActualPage() {
                   <YAxis tick={{ fill: colors.textMuted, fontSize: 10, fontFamily: fontMono }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `$${Math.round(v / 100) / 10}k`} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 12, color: colors.textMuted }} />
+                  {chartCrossesZero(chartData, ["Projected", "Actual"]) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
                   <Line type="monotone" dataKey="Projected" stroke={colors.accentLight} strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="Actual" stroke={colors.warning} strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>

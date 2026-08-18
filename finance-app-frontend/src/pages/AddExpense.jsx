@@ -5,6 +5,7 @@ import { accountsApi, transactionsApi, divisionsApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
+import { useCustomCategories } from "../lib/useCustomCategories";
 
 const CATEGORIES = ["Uncategorized", "Deposit", "Groceries", "Household", "Dining", "Transportation", "Utilities", "Entertainment", "Health", "Rent/Mortgage"];
 
@@ -45,6 +46,11 @@ export default function AddExpensePage() {
   const [totalAmount, setTotalAmount] = useState("");
   const [direction, setDirection] = useState("debit"); // "debit" = expense, "credit" = deposit
   const [categoryOptions, setCategoryOptions] = useState(CATEGORIES);
+  const { customCategories, addCustomCategory } = useCustomCategories();
+  useEffect(() => {
+    if (customCategories.length === 0) return;
+    setCategoryOptions((opts) => [...new Set([...opts, ...customCategories])]);
+  }, [customCategories]);
   const [primaryCategory, setPrimaryCategory] = useState("Uncategorized");
   const [addingPrimaryCategory, setAddingPrimaryCategory] = useState(false);
   const [newPrimaryCategory, setNewPrimaryCategory] = useState("");
@@ -223,6 +229,7 @@ export default function AddExpensePage() {
                     onClick={() => {
                       const name = newPrimaryCategory.trim();
                       setCategoryOptions((opts) => (opts.includes(name) ? opts : [...opts, name]));
+                      addCustomCategory(name);
                       setPrimaryCategory(name);
                       setAddingPrimaryCategory(false);
                       setNewPrimaryCategory("");
@@ -312,6 +319,7 @@ export default function AddExpensePage() {
                           onClick={() => {
                             const name = (s.newCategory || "").trim();
                             setCategoryOptions((opts) => (opts.includes(name) ? opts : [...opts, name]));
+                      addCustomCategory(name);
                             updateSplit(s.id, { ...s, category: name, addingCategory: false, newCategory: "" });
                           }}
                           className="rounded-lg px-2 text-xs font-medium shrink-0"

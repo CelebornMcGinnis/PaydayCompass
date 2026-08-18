@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wallet, ArrowUpRight, ArrowDownLeft, Repeat, Plus, Users, ChevronDown } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from "recharts";
+import { ArrowLeft, Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Repeat, Plus, Users, ChevronDown } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, ReferenceLine } from "recharts";
 import { accountsApi, transactionsApi, divisionsApi, externalBankAccountsApi, paydayApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
+import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
@@ -62,6 +62,7 @@ export default function AccountDetailPage() {
   const navigate = useNavigate();
   const { accountId } = useParams();
   const [account, setAccount] = useState(null);
+  const [allAccounts, setAllAccounts] = useState([]);
   const [paydayData, setPaydayData] = useState(null);
   const [externalAccounts, setExternalAccounts] = useState([]);
   const [addingExternalAccount, setAddingExternalAccount] = useState(false);
@@ -122,10 +123,19 @@ export default function AccountDetailPage() {
   function refresh() {
     return Promise.all([accountsApi.list(), transactionsApi.list(accountId), externalBankAccountsApi.list()]).then(([accounts, txns, externals]) => {
       setAccount(accounts.find((a) => a.accountId === accountId) || null);
+      setAllAccounts(accounts);
       setTransactions(txns);
       setExternalAccounts(externals);
     });
   }
+
+  // One-to-one: don't offer an external bank account already connected to
+  // a DIFFERENT account as a choice here - matches the real enforcement
+  // in accounts-fn (PUT /accounts/{id} rejects it with a 409 regardless,
+  // this just keeps the picker from offering an option that would fail).
+  const availableExternalAccounts = externalAccounts.filter(
+    (e) => !allAccounts.some((a) => a.externalBankAccountId === e.externalBankAccountId && a.accountId !== accountId)
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +235,40 @@ export default function AccountDetailPage() {
     }
     return points.reverse().slice(-30); // most recent 30 points, oldest to newest
   }, [account, transactions]);
+
+  // recharts' own auto tick generation (no explicit `ticks`/`domain`) can
+  // produce unevenly-spaced ticks for certain data ranges - confirmed by
+  // reproducing the reported symptom (a non-monotonic sequence like
+  // $0, $0.3k, $0.6k, $0.9k, $0.2k) with a formatter whose own math is
+  // correct in isolation, meaning the bug was in which raw values
+  // recharts chose to tick, not how they were formatted. Computing our
+  // own evenly-spaced "nice" ticks from the actual data range sidesteps
+  // that entirely.
+  const balanceTicks = useMemo(() => {
+    const values = trendData.map((p) => p.balance);
+    if (values.length === 0) return [];
+    const min = Math.min(...values, 0);
+    const max = Math.max(...values, 0);
+    if (min === max) return [min];
+    const rawStep = (max - min) / 4;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+    const normalized = rawStep / magnitude;
+    const niceNormalized = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+    const step = niceNormalized * magnitude;
+    const niceMin = Math.floor(min / step) * step;
+    const niceMax = Math.ceil(max / step) * step;
+    const ticks = [];
+    for (let v = niceMin; v <= niceMax + step / 2; v += step) ticks.push(Math.round(v));
+    return ticks;
+  }, [trendData]);
+
+  function formatBalanceTick(v) {
+    const negative = v < 0;
+    const abs = Math.abs(v);
+    if (abs < 1000) return `${negative ? "−" : ""}$${Math.round(abs)}`;
+    const thousands = (abs / 1000).toFixed(1).replace(/\.0$/, "");
+    return `${negative ? "−" : ""}$${thousands}k`;
+  }
 
   const categoryBreakdown = useMemo(() => {
     if (!transactions) return [];
@@ -366,7 +410,7 @@ export default function AccountDetailPage() {
                     style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
                   >
                     <option value="">Not connected</option>
-                    {externalAccounts.map((e) => <option key={e.externalBankAccountId} value={e.externalBankAccountId}>{e.name}</option>)}
+                    {availableExternalAccounts.map((e) => <option key={e.externalBankAccountId} value={e.externalBankAccountId}>{e.name}</option>)}
                     <option value="__new__">+ Add a new external account…</option>
                   </select>
                   <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
@@ -421,6 +465,16 @@ export default function AccountDetailPage() {
           >
             <Plus size={16} />
             Add an expense or deposit
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate(`/transfer?accountId=${accountId}`)}
+            className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+            style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
+          >
+            <ArrowLeftRight size={16} />
+            Transfer funds
           </button>
 
           <div className="flex items-center mb-2 px-1">
@@ -518,8 +572,9 @@ export default function AccountDetailPage() {
                   <LineChart data={trendData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                     <CartesianGrid stroke={colors.border} vertical={false} />
                     <XAxis dataKey="label" tick={{ fill: colors.textMuted, fontSize: 10 }} axisLine={{ stroke: colors.border }} tickLine={false} interval={Math.ceil(trendData.length / 6)} />
-                    <YAxis tick={{ fill: colors.textMuted, fontSize: 10, fontFamily: fontMono }} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => `$${Math.round(v / 100) / 10}k`} />
+                    <YAxis tick={{ fill: colors.textMuted, fontSize: 10, fontFamily: fontMono }} axisLine={false} tickLine={false} width={44} domain={[balanceTicks[0], balanceTicks[balanceTicks.length - 1]]} ticks={balanceTicks} tickFormatter={formatBalanceTick} />
                     <Tooltip content={<CustomTooltip />} />
+                    {chartCrossesZero(trendData, ["balance"]) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
                     <Line type="monotone" dataKey="balance" stroke={colors.accentLight} strokeWidth={2} dot={false} activeDot={{ r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>

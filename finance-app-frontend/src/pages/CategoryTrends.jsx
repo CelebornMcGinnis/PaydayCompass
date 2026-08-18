@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, X, Check } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { accountsApi, transactionsApi, preferencesApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
+import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import InfoBubble from "../components/InfoBubble";
@@ -105,7 +105,7 @@ export default function CategoryTrendsPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      accountsApi.list().then((accounts) => Promise.all(accounts.map((a) => transactionsApi.list(a.accountId)))),
+      accountsApi.list().then((accounts) => Promise.all(accounts.map((a) => transactionsApi.list(a.accountId).catch(() => [])))),
       preferencesApi.get(),
     ])
       .then(([perAccount, prefs]) => {
@@ -286,6 +286,7 @@ export default function CategoryTrendsPage() {
                   <YAxis tick={{ fill: colors.textMuted, fontSize: 9, fontFamily: fontMono }} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => `$${Math.round(v / 100) / 10}k`} />
                   <Tooltip content={<CustomTooltip />} />
                   {chart.categories.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: colors.textMuted }} />}
+                  {chartCrossesZero(chartData, chart.categories) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
                   {chart.categories.map((cat, i) => (
                     <Line key={cat} type="monotone" dataKey={cat} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} connectNulls />
                   ))}

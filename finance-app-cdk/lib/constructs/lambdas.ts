@@ -105,6 +105,7 @@ export class Lambdas extends Construct {
     tables.recurringTable.grantReadData(this.accountsFn); // block deleting an account that still has recurring templates tied to it
     tables.budgetsTable.grantReadWriteData(this.accountsFn); // clear a stale accountId reference when its destination account is deleted
     tables.plannedExpensesTable.grantReadWriteData(this.accountsFn); // same, for linkedAccountId
+    tables.externalBankAccountsTable.grantReadData(this.accountsFn); // validate + enforce one-to-one on externalBankAccountId
 
     // --- Transactions: add/split expense, debit/credit, recurring templates ---
     this.transactionsFn = baseFnProps(

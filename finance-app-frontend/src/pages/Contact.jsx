@@ -1,17 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Sun, Moon } from "lucide-react";
+import { Check } from "lucide-react";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
-import { useTheme } from "../lib/ThemeContext";
-import { useIsDesktop } from "../lib/useIsDesktop";
 import { contactApi } from "../lib/apiClient";
+import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 
 export default function ContactPage() {
-  const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
-  const isDesktop = useIsDesktop();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
@@ -38,17 +32,9 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen" style={{ background: colors.bg, fontFamily: fontBody }}>
-      <div className="flex items-center justify-between px-5 py-4 max-w-2xl mx-auto">
-        <button onClick={() => navigate(-1)} aria-label="Back" className="p-1 -ml-1 transition-opacity hover:opacity-70" style={{ color: colors.text }}>
-          <ArrowLeft size={20} />
-        </button>
-        <img src={theme === "dark" ? (isDesktop ? "/paydaycompass-logo-dark.png" : "/paydaycompass-favicon-dark.png") : (isDesktop ? "/paydaycompass-logo-light.png" : "/paydaycompass-favicon-light.png")} alt="PaydayCompass" style={{ width: isDesktop ? 130 : 24, height: isDesktop ? "auto" : 24 }} />
-        <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      </div>
+      <PageHeader title="Contact" />
 
-      <div className="max-w-2xl mx-auto px-5 pb-10">
+      <div className="max-w-2xl mx-auto px-5 pt-6 pb-10">
         <h1 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 26, fontWeight: 600 }} className="mb-2">Get in touch</h1>
         <PageBlurb>Questions, comments, or concerns - send a message and it'll come straight through.</PageBlurb>
 

@@ -8,6 +8,7 @@ import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
 import InfoBubble from "../components/InfoBubble";
+import { useCustomCategories } from "../lib/useCustomCategories";
 
 const CATEGORY_OPTIONS = ["Gifts", "Travel", "Insurance", "Home", "Auto", "Health", "Other"];
 const CONTRIBUTION_FREQUENCIES = [
@@ -70,6 +71,11 @@ function PlannedExpenseForm({ accounts, initial, onCancel, onSave, saving }) {
       ? [...CATEGORY_OPTIONS, initial.category]
       : CATEGORY_OPTIONS
   );
+  const { customCategories, addCustomCategory } = useCustomCategories();
+  useEffect(() => {
+    if (customCategories.length === 0) return;
+    setCategoryOptions((opts) => [...new Set([...opts, ...customCategories])]);
+  }, [customCategories]);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [targetAmount, setTargetAmount] = useState(initial?.targetAmount != null ? String(initial.targetAmount) : "");
@@ -151,6 +157,7 @@ function PlannedExpenseForm({ accounts, initial, onCancel, onSave, saving }) {
             onClick={() => {
               const name = newCategory.trim();
               setCategoryOptions((opts) => (opts.includes(name) ? opts : [...opts, name]));
+              addCustomCategory(name);
               setCategory(name);
               setAddingCategory(false);
               setNewCategory("");

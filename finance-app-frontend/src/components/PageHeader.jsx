@@ -19,7 +19,8 @@ import { useHeaderScrollShrink } from "../lib/useHeaderScrollShrink";
  */
 export default function PageHeader({ title, subtitle, onBack }) {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, status } = useAuth();
+  const signedIn = status === "signedIn";
   const { theme, toggleTheme } = useTheme();
   const isDesktop = useIsDesktop();
   const scrolled = useHeaderScrollShrink(isDesktop);
@@ -29,6 +30,11 @@ export default function PageHeader({ title, subtitle, onBack }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
+    // Contact is reachable signed-out (linked from the Landing page) and
+    // reuses this same header for visual consistency - skip the
+    // authenticated-only lookups entirely rather than firing requests
+    // that can only 401 for a guest.
+    if (!signedIn) return;
     sharingApi
       .list()
       .then((d) => setHasPendingShares((d.asInvited || []).some((s) => s.status === "pending")))
@@ -37,7 +43,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
       .list()
       .then((d) => setHasNotifications((d.notifications || []).length > 0))
       .catch(() => {});
-  }, []);
+  }, [signedIn]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -59,6 +65,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
             <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+            {signedIn && (
             <div className="relative" ref={menuRef}>
               <button onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
                 {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -110,6 +117,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
         <div style={{ borderTop: `1px solid ${colors.border}` }} />
@@ -149,6 +157,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
         <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+        {signedIn && (
         <div className="relative" ref={menuRef}>
           <button onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -200,6 +209,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
           </div>
         )}
       </div>
+        )}
       </div>
     </div>
   );

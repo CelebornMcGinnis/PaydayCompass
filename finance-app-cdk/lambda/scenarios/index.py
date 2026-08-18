@@ -58,6 +58,7 @@ from finance_common.budget_notify import get_active_budgets
 from finance_common.budget_frequency import to_monthly_equivalent, recurring_item_monthly_equivalent
 from finance_common.payday_periods import previous_real_payday, next_real_payday_after
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
+from finance_common.decimal_utils import floats_to_decimal
 
 dynamodb = boto3.resource("dynamodb")
 scenarios_table = dynamodb.Table(os.environ["SCENARIOS_TABLE"])
@@ -108,11 +109,11 @@ def _save_scenario(user_id, body):
         "userId": user_id,
         "scenarioId": str(uuid.uuid4()),
         "name": name,
-        "incomeAdjustments": body.get("incomeAdjustments", []),
-        "expenseAdjustments": body.get("expenseAdjustments", []),
-        "newExpenses": body.get("newExpenses", []),
-        "newIncome": body.get("newIncome", []),
-        "oneTimeExpenses": body.get("oneTimeExpenses", []),
+        "incomeAdjustments": floats_to_decimal(body.get("incomeAdjustments", [])),
+        "expenseAdjustments": floats_to_decimal(body.get("expenseAdjustments", [])),
+        "newExpenses": floats_to_decimal(body.get("newExpenses", [])),
+        "newIncome": floats_to_decimal(body.get("newIncome", [])),
+        "oneTimeExpenses": floats_to_decimal(body.get("oneTimeExpenses", [])),
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
     scenarios_table.put_item(Item=item)
