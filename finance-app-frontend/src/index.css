@@ -43,6 +43,13 @@
 
 html {
   scrollbar-gutter: stable;
+  /* Without this, the reserved gutter strip itself (not the page content)
+     doesn't repaint on a theme toggle's background-color change until
+     the next scroll/compositing event forces it - shows up as a thin
+     sliver on the right edge stuck in the old theme's color. Forcing its
+     own compositing layer keeps that strip's paint in sync with the
+     background-color transition instead of lagging behind it. */
+  will-change: background-color;
 }
 
 html, body {

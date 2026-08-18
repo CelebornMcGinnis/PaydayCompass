@@ -41,7 +41,14 @@ export default function PageHeader({ title, subtitle, onBack }) {
       .catch(() => {}); // best-effort - a failed check just means no dot, not a broken header
     peerNotificationsApi
       .list()
-      .then((d) => setHasNotifications((d.notifications || []).length > 0))
+      // Only a currently-active notification (isExpanded, per the
+      // backend's own due-date logic) should light the dot - a past-due
+      // one is deliberately kept around as an archived record rather
+      // than deleted (see peer_notifications-fn's docstring), so
+      // counting the raw list length here would leave the dot stuck on
+      // forever once even one notification's due date passes, regardless
+      // of what the user actually deletes.
+      .then((d) => setHasNotifications((d.notifications || []).some((n) => n.isExpanded)))
       .catch(() => {});
   }, [signedIn]);
 

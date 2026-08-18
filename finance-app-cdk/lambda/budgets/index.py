@@ -153,8 +153,12 @@ def _list_budgets(user_id):
     just created could be completely invisible in the list until that
     future date arrived - indistinguishable from the save having silently
     failed. Now a not-yet-started budget still shows, tagged
-    isUpcoming=True with no spend computed against it yet (nothing has
-    been spent against a budget period that hasn't started)."""
+    isUpcoming=True. spentAmount is still computed for it, though - a
+    user can add a future-dated expense against a category whose budget
+    hasn't started yet (by today's calendar date), and that expense's
+    date can already fall within the budget's own effectiveStartDate
+    window, so it should count immediately rather than waiting for
+    today to catch up to effectiveStartDate."""
     today = date.today().isoformat()
 
     result = budgets_table.query(
@@ -170,12 +174,15 @@ def _list_budgets(user_id):
 
     active_budgets = list(by_category.values())
     for budget in active_budgets:
-        if budget["effectiveStartDate"] <= today:
-            budget["spentAmount"] = category_spend_all_accounts(user_id, budget["category"], budget["effectiveStartDate"])
-            budget["isUpcoming"] = False
-        else:
-            budget["spentAmount"] = 0
-            budget["isUpcoming"] = True
+        # spentAmount is always computed for real, regardless of whether
+        # today has reached effectiveStartDate yet - a future-dated
+        # expense can be entered against a not-yet-started budget (its
+        # date already falls within that budget's eventual window), and
+        # should count immediately rather than silently showing as
+        # unspent until the calendar catches up. isUpcoming is purely a
+        # display flag for "hasn't started as of today".
+        budget["spentAmount"] = category_spend_all_accounts(user_id, budget["category"], budget["effectiveStartDate"])
+        budget["isUpcoming"] = budget["effectiveStartDate"] > today
 
     return _response(200, active_budgets, default=_decimal_default)
 

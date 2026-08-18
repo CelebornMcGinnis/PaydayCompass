@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import DivisionSelect from "../components/DivisionSelect";
 import { useCustomCategories } from "../lib/useCustomCategories";
+import { useTheme } from "../lib/ThemeContext";
 
 const CATEGORIES = ["Uncategorized", "Deposit", "Groceries", "Household", "Dining", "Transportation", "Utilities", "Entertainment", "Health", "Rent/Mortgage"];
 
@@ -16,11 +17,13 @@ function uid() {
 
 export default function AddExpensePage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [searchParams] = useSearchParams();
   const presetAccountId = searchParams.get("accountId");
 
   const [accounts, setAccounts] = useState(null);
   const [accountId, setAccountId] = useState(presetAccountId || "");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [divisionId, setDivisionId] = useState("");
   const [divisions, setDivisions] = useState([]);
 
@@ -103,13 +106,15 @@ export default function AddExpensePage() {
       await transactionsApi.addExpense(accountId, {
         totalAmount: total,
         direction,
+        date,
         splits: finalSplits,
         divisionId: divisionId || undefined,
       });
       if (andAddAnother) {
-        // Keep the account and direction (expense/deposit) - the most
-        // common case is entering several similar items in a row -
-        // reset everything else for a genuinely fresh entry.
+        // Keep the account, direction (expense/deposit), and date - the
+        // most common case is entering several similar items in a row
+        // (often several receipts from the same day) - reset everything
+        // else for a genuinely fresh entry.
         setTotalAmount("");
         setPrimaryCategory(direction === "credit" ? "Deposit" : "Uncategorized");
         setDescription("");
@@ -176,6 +181,17 @@ export default function AddExpensePage() {
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
               </div>
+            </div>
+
+            <div className="mb-5">
+              <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none"
+                style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+              />
             </div>
 
             {accountId && (

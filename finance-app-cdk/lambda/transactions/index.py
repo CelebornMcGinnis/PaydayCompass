@@ -79,6 +79,7 @@ dynamodb = boto3.resource("dynamodb")
 transactions_table = dynamodb.Table(os.environ["TRANSACTIONS_TABLE"])
 accounts_table = dynamodb.Table(os.environ["ACCOUNTS_TABLE"])
 divisions_table = dynamodb.Table(os.environ["DIVISIONS_TABLE"])
+audit_log_table = dynamodb.Table(os.environ["AUDIT_LOG_TABLE"])
 
 DEFAULT_ONE_TIME_CREDIT_CATEGORY = "One-Time Income"
 

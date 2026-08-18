@@ -557,10 +557,6 @@ export default function AccountDetailPage() {
             )
           )}
 
-          {divisions && divisions.length > 0 && (
-            <DivisionTrendCharts accountId={accountId} divisions={divisions} transactions={transactions || []} />
-          )}
-
           <div className="mb-6">
             <div className="flex items-center mb-2 px-1">
               <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Balance trend</h3>
@@ -583,6 +579,10 @@ export default function AccountDetailPage() {
               <p className="text-sm" style={{ color: colors.textMuted }}>Not enough transaction history yet to chart a trend.</p>
             )}
           </div>
+
+          {divisions && divisions.length > 0 && (
+            <DivisionTrendCharts accountId={accountId} divisions={divisions} transactions={transactions || []} />
+          )}
 
           <div className="mb-6">
             <div className="flex items-center mb-2 px-1">

@@ -26,6 +26,33 @@ export class Api extends Construct {
       },
     });
 
+    // defaultCorsPreflightOptions only covers the OPTIONS preflight and
+    // successful responses a Lambda's own _response() helper builds -
+    // it does NOT cover a rejection API Gateway itself generates before
+    // ever invoking a Lambda (an expired/invalid Cognito token, a
+    // throttled request, an unmatched route). Those come back with no
+    // CORS headers at all, which the browser then reports as a raw,
+    // unexplained network failure ("Couldn't reach the server") instead
+    // of surfacing the real 401/403/429 - the same class of bug
+    // documented in DEPLOY.md for the Lambda-response side, just at the
+    // API Gateway layer instead.
+    new apigateway.GatewayResponse(this, "Default4xxCors", {
+      restApi: this.restApi,
+      type: apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": "'*'",
+        "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+      },
+    });
+    new apigateway.GatewayResponse(this, "Default5xxCors", {
+      restApi: this.restApi,
+      type: apigateway.ResponseType.DEFAULT_5XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": "'*'",
+        "Access-Control-Allow-Headers": "'Content-Type,Authorization'",
+      },
+    });
+
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, "Authorizer", {
       cognitoUserPools: [userPool],
     });
