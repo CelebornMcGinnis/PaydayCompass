@@ -204,6 +204,36 @@ export function resendConfirmationCode(email) {
 }
 
 /**
+ * Kicks off the "forgot password" flow - Cognito emails a verification
+ * code to the account's address. Doesn't require being signed in, since
+ * the whole point is recovering access when you can't sign in.
+ */
+export function forgotPassword(email) {
+  return new Promise((resolve, reject) => {
+    const user = new CognitoUser({ Username: email, Pool: userPool });
+    user.forgotPassword({
+      onSuccess: (result) => resolve(result),
+      onFailure: (err) => reject(err),
+    });
+  });
+}
+
+/**
+ * Completes the forgot-password flow with the emailed code and a new
+ * password. Succeeding here doesn't establish a session - the caller
+ * still needs to sign in normally afterward with the new password.
+ */
+export function confirmForgotPassword(email, code, newPassword) {
+  return new Promise((resolve, reject) => {
+    const user = new CognitoUser({ Username: email, Pool: userPool });
+    user.confirmPassword(code, newPassword, {
+      onSuccess: () => resolve(),
+      onFailure: (err) => reject(err),
+    });
+  });
+}
+
+/**
  * Returns every attribute on the current user as a plain object, e.g.
  * { email: "...", "custom:hasCompletedSetup": "true" }. Cognito custom
  * attributes are always returned prefixed with "custom:".
