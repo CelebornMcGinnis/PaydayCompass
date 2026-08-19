@@ -231,7 +231,6 @@ export default function TransferFundsPage() {
                     setFromDivisionId(division.divisionId);
                   }}
                   wholeLabel="From the whole account, not a specific division"
-                  prefixLabel="From division"
                 />
               )}
             </div>
@@ -278,7 +277,6 @@ export default function TransferFundsPage() {
                     setToDivisionId(division.divisionId);
                   }}
                   wholeLabel="Into the whole account, not a specific division"
-                  prefixLabel="Into division"
                 />
               )}
             </div>
