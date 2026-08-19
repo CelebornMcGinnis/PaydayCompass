@@ -121,6 +121,7 @@ export default function DashboardPage() {
   const [externalAccountsById, setExternalAccountsById] = useState({});
   const [quickActionIds, setQuickActionIds] = useState(null); // null until loaded (either from preferences or the built-in default)
   const [customizedActions, setCustomizedActions] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false); // true once the preferences fetch has settled, success or failure
   const [editingActions, setEditingActions] = useState(false);
   const [actionsError, setActionsError] = useState(null);
   const [addingAccount, setAddingAccount] = useState(false);
@@ -217,17 +218,22 @@ export default function DashboardPage() {
           setCustomizedActions(true);
         }
       })
-      .catch(() => {}); // best-effort - falls back to the default set below
+      .catch(() => {}) // falls back to the default set below
+      .finally(() => setPreferencesLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Computed default, never itself persisted - keeps re-deriving from the
   // built-in QUICK_ACTIONS list until the user actually customizes,
   // matching the same pattern CategoryTrends.jsx uses for its charts.
+  // Gated on preferencesLoaded (not just quickActionIds === null) so this
+  // never wins the race against the slower preferences fetch above - the
+  // default painting first and then snapping to the real, saved selection
+  // once that request finally resolves is exactly the flash this avoids.
   useEffect(() => {
-    if (customizedActions || quickActionIds !== null) return;
+    if (customizedActions || quickActionIds !== null || !preferencesLoaded) return;
     setQuickActionIds(QUICK_ACTIONS.map((a) => a.to));
-  }, [customizedActions, quickActionIds]);
+  }, [customizedActions, quickActionIds, preferencesLoaded]);
 
   const resolvedActions = (quickActionIds || []).map((id) => AVAILABLE_ACTIONS.find((a) => a.id === id)).filter(Boolean);
   const remainingActions = AVAILABLE_ACTIONS.filter((a) => !(quickActionIds || []).includes(a.id));
