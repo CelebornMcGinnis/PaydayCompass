@@ -393,7 +393,14 @@ export default function PaydayPage() {
 
   return (
     <div className="min-h-screen pb-28" style={{ background: colors.bg, fontFamily: fontBody }}>
-      <PageHeader title="Payday calculator" subtitle={data && data.mode !== "noIncome" ? (data.mode === "history" ? `submitted ${data.paydayDate}` : `due ${data.nextPayday}`) : undefined} />
+      <PageHeader
+        title="Payday calculator"
+        subtitle={data && data.mode !== "noIncome" ? (data.mode === "history" ? `submitted ${data.paydayDate}` : `due ${data.nextPayday}`) : undefined}
+        wizardBlocked={data?.mode === "noIncome" ? {
+          message: "Payday works off your income schedule - you'll need at least one income source set up before there's anything real to walk through here.",
+          guideTo: "/recurring?new=income",
+        } : null}
+      />
 
       {!data ? (
         <p className="text-sm px-5 pt-6" style={{ color: colors.textMuted }}>Loading…</p>
@@ -421,7 +428,9 @@ export default function PaydayPage() {
       ) : (
         <div className="px-5 pt-6 max-w-md mx-auto">
           <PageBlurb>Everything due before your next paycheck, adjustable, submitted as one batch.</PageBlurb>
-          <PaydaySelector viewDate={viewDate} onSelectDate={setViewDate} onReset={() => setViewDate(null)} />
+          <div data-wizard-target="wizard-payday-selector">
+            <PaydaySelector viewDate={viewDate} onSelectDate={setViewDate} onReset={() => setViewDate(null)} />
+          </div>
 
           {data.mode === "history" && (data.errors || []).length > 0 && (
             <div className="rounded-2xl p-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.alert}` }}>
@@ -495,7 +504,7 @@ export default function PaydayPage() {
           )}
 
           {data.mode === "preview" && (
-          <div className="rounded-2xl p-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="rounded-2xl p-4 mb-5" data-wizard-target="wizard-payday-income" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
             {data.income.map((inc, i) => {
               const rowKey = `income-${inc.accountId}-${inc.recurringId}`;
               const isEditingIncome = editingKey === rowKey;
@@ -563,7 +572,7 @@ export default function PaydayPage() {
           {data.mode === "preview" && (
           <>
           <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-2 px-1">Recurring expenses</h3>
-          <div className="rounded-2xl px-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="rounded-2xl px-4 mb-5" data-wizard-target="wizard-payday-expenses" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
             {data.upcomingExpenses.length === 0 ? (
               <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Nothing due before payday.</p>
             ) : (
@@ -583,7 +592,7 @@ export default function PaydayPage() {
 
           {isEditable && (
           <>
-          <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-2 px-1">
+          <h3 data-wizard-target="wizard-payday-unpredicted" style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-2 px-1">
             Unpredicted amounts <span className="text-xs font-normal" style={{ color: colors.textMuted }}>(optional)</span>
           </h3>
           {unpredicted.map((row) => (
@@ -648,7 +657,7 @@ export default function PaydayPage() {
 
           {(data.budgetedExpenses?.length > 0 || data.plannedExpenseContributions?.length > 0) && (
             <>
-              <div className="flex items-center mb-2 px-1">
+              <div className="flex items-center mb-2 px-1" data-wizard-target="wizard-payday-budgeted">
                 <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Budgeted &amp; planned</h3>
                 <InfoBubble text="What to set aside this payday - budget categories and planned-expense contributions. Ones with a destination account (set in Budgets or Planned Expenses) actually get transferred there when you submit; ones without stay purely informational." />
               </div>
@@ -823,7 +832,7 @@ export default function PaydayPage() {
 
           {data.aggregateByExternalBankAccount?.length > 0 && (
             <>
-              <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">By bank account</h3>
+              <h3 data-wizard-target="wizard-payday-bybank" style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">By bank account</h3>
               <p className="text-xs mb-2 px-1" style={{ color: colors.textMuted }}>
                 Total money to move, grouped by which real account it's on and which real-world bank account (if any) it's set up to draft from.
               </p>
@@ -845,7 +854,7 @@ export default function PaydayPage() {
 
           {isEditable && data.shareableRecipients?.length > 0 && (
             <>
-              <div className="flex items-center mb-2 px-1">
+              <div className="flex items-center mb-2 px-1" data-wizard-target="wizard-payday-notify">
                 <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Let someone know</h3>
                 <InfoBubble text="Send someone you trust a heads-up that money is moving - they'll get an email and see it in their own Notifications page. Requires a mutual fund-movement agreement first: if someone shows 'not invited,' send them one from the Notifications page before they'll be selectable here." />
               </div>
@@ -971,6 +980,7 @@ export default function PaydayPage() {
           ) : (
             <button
               type="button"
+              data-wizard-target="wizard-payday-submit"
               onClick={submitted ? () => navigate("/") : () => setConfirmingSubmit(true)}
               disabled={!data || submitting}
               className="w-full rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2"

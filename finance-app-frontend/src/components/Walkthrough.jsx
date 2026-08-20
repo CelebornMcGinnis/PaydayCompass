@@ -13,7 +13,23 @@ import { colors, fontDisplay, fontBody } from "../lib/theme";
  * the menu, which is an async state update in the parent. This retries
  * briefly (500ms) before concluding a target is genuinely absent (e.g.
  * the account list ref when there are zero accounts) and skipping ahead.
+ *
+ * A step targets an element either via `ref` (a React ref, e.g.
+ * Dashboard's own walkthrough) or `targetId` (a plain string matched
+ * against a `data-wizard-target="..."` attribute, used by the
+ * centralized per-page wizards in lib/wizards.js so their content
+ * doesn't need a useRef() wired up in every page). A step with neither
+ * renders as a plain, non-spotlit centered card - the same fallback
+ * this component already uses for a genuinely-absent ref target, which
+ * is exactly right for a conceptual step that was never meant to point
+ * at one specific element.
  */
+function resolveStepElement(step) {
+  if (step?.ref?.current) return step.ref.current;
+  if (step?.targetId) return document.querySelector(`[data-wizard-target="${step.targetId}"]`);
+  return null;
+}
+
 export default function Walkthrough({ steps, onFinish, onStepChange }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
@@ -30,9 +46,16 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
     let timeoutId;
 
     function measure() {
-      const el = step?.ref?.current;
+      const el = resolveStepElement(step);
       if (el) {
         setRect(el.getBoundingClientRect());
+        return;
+      }
+      // A step with no ref/targetId at all was never meant to point at
+      // anything - render it as a plain centered card immediately,
+      // never skip it (unlike below, where a target was expected).
+      if (!step?.ref && !step?.targetId) {
+        setRect(null);
         return;
       }
       if (attempts < 10) {

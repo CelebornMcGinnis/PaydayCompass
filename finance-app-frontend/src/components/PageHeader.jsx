@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Home, Menu, X, LogOut, Sun, Moon } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, Home, Menu, X, LogOut, Sun, Moon, GraduationCap } from "lucide-react";
 import { NAV_SECTIONS } from "../lib/navLinks";
+import { getWizardForPath } from "../lib/wizards";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
 import { useAuth } from "../lib/authContext";
 import { useTheme } from "../lib/ThemeContext";
 import { sharingApi, peerNotificationsApi } from "../lib/apiClient";
 import { useIsDesktop } from "../lib/useIsDesktop";
 import { useHeaderScrollShrink } from "../lib/useHeaderScrollShrink";
+import WizardMenu from "./WizardMenu";
+import Walkthrough from "./Walkthrough";
 
 /**
  * The standard header for every page except Dashboard (which has its own
@@ -16,9 +19,16 @@ import { useHeaderScrollShrink } from "../lib/useHeaderScrollShrink";
  * (browser-history back, for "where I actually came from"), a home
  * button (always the dashboard specifically), the logo, the current
  * page's title, and the same nav menu Dashboard has.
+ *
+ * Also the single place the per-page teaching wizard button lives (see
+ * src/lib/wizards.js) - it looks itself up by route, so most pages need
+ * zero wiring to get one; a page only needs to pass `wizardBlocked` if
+ * it has an already-known reason the wizard's subject can't be used yet
+ * (e.g. Payday with no income source set up).
  */
-export default function PageHeader({ title, subtitle, onBack }) {
+export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut, status } = useAuth();
   const signedIn = status === "signedIn";
   const { theme, toggleTheme } = useTheme();
@@ -28,6 +38,44 @@ export default function PageHeader({ title, subtitle, onBack }) {
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
   const menuRef = useRef(null);
+
+  const wizard = getWizardForPath(location.pathname);
+  const [wizardMenuOpen, setWizardMenuOpen] = useState(false);
+  const [activeTour, setActiveTour] = useState(null);
+
+  function selectWizardTier(tier) {
+    setActiveTour(wizard[tier].steps);
+    setWizardMenuOpen(false);
+  }
+  function guideToPrerequisite() {
+    setWizardMenuOpen(false);
+    navigate(wizardBlocked.guideTo);
+  }
+
+  function WizardButton() {
+    if (!wizard) return null;
+    return (
+      <button onClick={() => setWizardMenuOpen(true)} aria-label="Page wizard" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
+        <GraduationCap size={18} />
+      </button>
+    );
+  }
+  function WizardDialogs() {
+    return (
+      <>
+        <WizardMenu
+          open={wizardMenuOpen}
+          pageTitle={title}
+          wizard={wizard}
+          blocked={wizardBlocked}
+          onClose={() => setWizardMenuOpen(false)}
+          onSelectTier={selectWizardTier}
+          onGuide={guideToPrerequisite}
+        />
+        {activeTour && <Walkthrough steps={activeTour} onFinish={() => setActiveTour(null)} />}
+      </>
+    );
+  }
 
   useEffect(() => {
     // Contact is reachable signed-out (linked from the Landing page) and
@@ -69,6 +117,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
         <div className="flex items-center justify-between px-5 transition-all" style={{ paddingTop: scrolled ? 10 : 16, paddingBottom: scrolled ? 10 : 12 }}>
           <img src={theme === "dark" ? "/paydaycompass-logo-dark.png" : "/paydaycompass-logo-light.png"} alt="PaydayCompass" style={{ width: scrolled ? 240 : 350, height: "auto", transition: "width 0.2s ease" }} className="shrink-0" />
           <div className="flex items-center gap-1 shrink-0">
+            <WizardButton />
             <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -140,6 +189,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
             {subtitle && <span className="text-xs" style={{ color: colors.textMuted }}>{subtitle}</span>}
           </div>
         </div>
+        <WizardDialogs />
       </div>
     );
   }
@@ -161,6 +211,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
+        <WizardButton />
         <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
@@ -218,6 +269,7 @@ export default function PageHeader({ title, subtitle, onBack }) {
       </div>
         )}
       </div>
+      <WizardDialogs />
     </div>
   );
 }

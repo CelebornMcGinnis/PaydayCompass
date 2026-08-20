@@ -151,6 +151,7 @@ export default function DashboardPage() {
     { ref: quickActionsRef, title: "Quick actions", body: "The fastest way to add an expense or income, or jump straight to Budgets, Recurring, or Planned Expenses - all of these are also in the menu, so use whichever you prefer." },
     { ref: accountsListRef, title: "Your accounts", body: "Tap any account to see its transactions, spending trends, and category breakdown." },
     { ref: addAccountRef, title: "Adding an account", body: "Add as many as you actually use — checking, savings, credit cards, whatever's real for you." },
+    { title: "Every page has its own wizard too", body: "Look for a small graduation-cap icon in the top-right of most pages - that opens a focused tour just for that page, with a quick Basic option and a deeper Advanced one. Come back to any page's wizard whenever you want a refresher." },
     { ref: menuButtonRef, title: "Getting around", body: "Everything else lives behind this menu. Let's take a quick look at what's here." },
     ...NAV_LINKS.map((link) => ({ ref: navItemRef(link.to), title: link.label, body: link.description })),
   ];
@@ -159,7 +160,7 @@ export default function DashboardPage() {
   // every nav-item step after it - open right when that section starts,
   // close again once the tour moves past the last nav item (or ends).
   function handleWalkthroughStepChange(stepIndex) {
-    const menuSectionStart = 3; // index of the "Getting around" step above
+    const menuSectionStart = 5; // index of the "Getting around" step above
     const inMenuSection = stepIndex >= menuSectionStart && stepIndex < walkthroughSteps.length;
     setMenuOpen(inMenuSection);
   }
@@ -170,6 +171,19 @@ export default function DashboardPage() {
     searchParams.delete("tour");
     setSearchParams(searchParams, { replace: true });
   }
+
+  // Deep-link support for a wizard elsewhere in the app (e.g.
+  // TransferFunds' "you need a second account first" prerequisite
+  // notice) to land here with the add-account form already open -
+  // same query-param convention as ManageRecurring's ?new=income.
+  useEffect(() => {
+    if (searchParams.get("newAccount") === "1") {
+      setAddingAccount(true);
+      searchParams.delete("newAccount");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function loadAccounts() {
     accountsApi
