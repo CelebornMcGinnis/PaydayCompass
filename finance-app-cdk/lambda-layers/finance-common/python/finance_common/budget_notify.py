@@ -86,42 +86,48 @@ def trigger_budget_check(user_id, account_id, category, net_change_amount):
     notifications-fn if a threshold was crossed. No-ops (does nothing,
     doesn't raise) if there's no budget for the category, no user email
     on file, the user has turned budget alerts off, or the calling
-    function has no NOTIFICATIONS_FN_NAME set. Never called for decreases
-    (net_change_amount <= 0) - crossing a threshold downward isn't
-    alert-worthy."""
-    notifications_fn_name = os.environ.get("NOTIFICATIONS_FN_NAME")
-    if net_change_amount is None or net_change_amount <= 0 or not notifications_fn_name:
-        return
-    if not get_preference(user_id, "budgetAlertsEnabled", True):
-        return
+    function has no NOTIFICATIONS_FN_NAME set - and, like
+    check_low_balance_alert, swallows any genuine failure too (a lookup
+    error, a throttled invoke) rather than raising, since every caller
+    invokes this only after its own real balance-changing write has
+    already succeeded. Never called for decreases (net_change_amount <=
+    0) - crossing a threshold downward isn't alert-worthy."""
+    try:
+        notifications_fn_name = os.environ.get("NOTIFICATIONS_FN_NAME")
+        if net_change_amount is None or net_change_amount <= 0 or not notifications_fn_name:
+            return
+        if not get_preference(user_id, "budgetAlertsEnabled", True):
+            return
 
-    today = date.today().isoformat()
-    budget = get_active_budget(user_id, category, today)
-    if not budget:
-        return
-    if not budget.get("alertsEnabled", True):
-        return
+        today = date.today().isoformat()
+        budget = get_active_budget(user_id, category, today)
+        if not budget:
+            return
+        if not budget.get("alertsEnabled", True):
+            return
 
-    since_date = budget["effectiveStartDate"]
-    new_total = category_spend_all_accounts(user_id, category, since_date)
-    previous_total = new_total - net_change_amount
+        since_date = budget["effectiveStartDate"]
+        new_total = category_spend_all_accounts(user_id, category, since_date)
+        previous_total = new_total - net_change_amount
 
-    user_email = lookup_email_by_sub(user_id)
-    if not user_email:
-        return
+        user_email = lookup_email_by_sub(user_id)
+        if not user_email:
+            return
 
-    _lambda_client.invoke(
-        FunctionName=notifications_fn_name,
-        InvocationType="Event",
-        Payload=json.dumps(
-            {
-                "userId": user_id,
-                "userEmail": user_email,
-                "category": category,
-                "accountId": account_id,
-                "newSpendTotal": float(new_total),
-                "previousSpendTotal": float(previous_total),
-                "budgetAmount": to_monthly_equivalent(budget["amount"], budget.get("frequency", "monthly")),
-            }
-        ),
-    )
+        _lambda_client.invoke(
+            FunctionName=notifications_fn_name,
+            InvocationType="Event",
+            Payload=json.dumps(
+                {
+                    "userId": user_id,
+                    "userEmail": user_email,
+                    "category": category,
+                    "accountId": account_id,
+                    "newSpendTotal": float(new_total),
+                    "previousSpendTotal": float(previous_total),
+                    "budgetAmount": to_monthly_equivalent(budget["amount"], budget.get("frequency", "monthly")),
+                }
+            ),
+        )
+    except Exception:
+        pass
