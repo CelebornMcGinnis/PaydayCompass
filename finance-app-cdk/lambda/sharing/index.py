@@ -229,16 +229,20 @@ def _respond_to_invites(invited_user_id, owner_user_id, body):
     if new_status not in {"accepted", "declined"}:
         return _response(400, {"error": "status must be 'accepted' or 'declined'"})
 
+    # byInvitedUser's actual key schema is invitedUserId (hash) + status
+    # (range) - shareKey isn't part of this index at all, so a
+    # begins_with(shareKey, ...) key condition against it is invalid.
+    # ownerUserId also isn't part of the key, so once narrowed to this
+    # invited user's pending shares, the specific owner is filtered in
+    # Python - fine at this scale (one owner's shares to one invited user
+    # is never a large set).
     shares = sharing_table.query(
         IndexName="byInvitedUser",
-        KeyConditionExpression="invitedUserId = :uid AND begins_with(shareKey, :prefix)",
-        ExpressionAttributeValues={":uid": invited_user_id, ":prefix": f"{invited_user_id}#"},
+        KeyConditionExpression="invitedUserId = :uid AND #s = :pending",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={":uid": invited_user_id, ":pending": "pending"},
     ).get("Items", [])
-    # byInvitedUser's key condition can't filter on ownerUserId directly
-    # (it's not part of that index's key), so it's applied as a filter
-    # above instead - fine at this scale (one owner's shares to one
-    # invited user is never a large set).
-    pending_from_owner = [s for s in shares if s.get("ownerUserId") == owner_user_id and s.get("status") == "pending"]
+    pending_from_owner = [s for s in shares if s.get("ownerUserId") == owner_user_id]
 
     if not pending_from_owner:
         return _response(404, {"error": "no pending invitation found from that owner"})
