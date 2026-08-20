@@ -42,6 +42,20 @@ export function chartCrossesZero(data, keys) {
   return data.some((row) => keys.some((k) => typeof row[k] === "number" && row[k] < 0));
 }
 
+// Formats a dollar chart-axis tick with adaptive precision - plain
+// dollars under $1000 ("$412"), "k" with trailing ".0" stripped above
+// that ("$1.5k", "$2k"). Originally local to AccountDetail.jsx's Balance
+// Trend chart (to fix duplicate "$0k" labels a naive fixed-precision
+// formatter produced for small ranges); Category Trends hit the exact
+// same issue with its own naive formatter, so this moved here to share.
+export function formatChartTick(v) {
+  const negative = v < 0;
+  const abs = Math.abs(v);
+  if (abs < 1000) return `${negative ? "−" : ""}$${Math.round(abs)}`;
+  const thousands = (abs / 1000).toFixed(1).replace(/\.0$/, "");
+  return `${negative ? "−" : ""}$${thousands}k`;
+}
+
 // Mirrors finance_common.budget_frequency.MONTHLY_EQUIVALENT_FACTOR - a
 // budget's `amount` is a cap for one period of its `frequency`, and
 // charts that bucket spending by calendar month (Category Trends) need
