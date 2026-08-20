@@ -61,6 +61,39 @@ async function request(method, path, body) {
   return data;
 }
 
+/**
+ * For the CSV import endpoints, which read the raw request body as CSV
+ * text (csv.DictReader on event["body"]) rather than JSON - request()
+ * always JSON-encodes a truthy body, which would send the CSV wrapped
+ * in a quoted JSON string instead of as-is.
+ */
+async function postCsv(path, csvText) {
+  const token = await getIdToken();
+  if (!token) {
+    throw new ApiError(401, "Not signed in");
+  }
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "text/csv" },
+      body: csvText,
+    });
+  } catch {
+    throw new ApiError(0, "Couldn't reach the server - check your connection and try again. If you're not sure whether this went through, refresh and check before retrying.");
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    throw new ApiError(res.status, data);
+  }
+  return data;
+}
+
 async function publicRequest(method, path, body) {
   // For endpoints that don't require sign-in (currently just /contact,
   // since it must be reachable from the pre-login Landing page) - same
@@ -158,6 +191,13 @@ export const recurringApi = {
     api.put(`/accounts/${accountId}/recurring/${recurringId}/occurrence`, body),
   markPaid: (accountId, recurringId) => api.post(`/accounts/${accountId}/recurring/${recurringId}/mark-paid`),
   skip: (accountId, recurringId) => api.post(`/accounts/${accountId}/recurring/${recurringId}/skip`),
+};
+
+export const csvApi = {
+  exportTemplate: () => api.get("/csv/export-template"),
+  importCsv: (csvText) => postCsv("/csv/import", csvText),
+  exportRecurringTemplate: () => api.get("/csv/recurring/export-template"),
+  importRecurringCsv: (csvText) => postCsv("/csv/recurring/import", csvText),
 };
 
 export const preferencesApi = {
