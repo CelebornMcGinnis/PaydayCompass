@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { RemovalPolicy, Duration } from "aws-cdk-lib";
+import { RemovalPolicy } from "aws-cdk-lib";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -52,6 +52,35 @@ export class Frontend extends Construct {
       `),
     });
 
+    // react-router-dom client-side routes (e.g. /budgets, /accounts/123)
+    // don't exist as real S3 objects, so a direct hit or refresh needs to
+    // fall back to index.html and let the SPA's own router take over. This
+    // used to be done via the distribution's errorResponses (403/404 ->
+    // index.html), but that setting applies to the WHOLE distribution,
+    // including the api/* behavior - it was silently rewriting every
+    // legitimate application-level 404/403 from the API (e.g. sharing's
+    // "no user found with that email") into a 200 OK containing the SPA's
+    // index.html, so the frontend never saw the real error. Scoping the
+    // fallback to a CloudFront Function on the default behavior only (same
+    // mechanism as stripApiPrefixFn above) keeps it from ever touching
+    // api/* traffic. Anything with a file extension in its last path
+    // segment (assets, images, favicon) is left alone so a genuinely
+    // missing static file still 404s instead of masking a broken build.
+    const spaFallbackFn = new cloudfront.Function(this, "SpaFallbackFn", {
+      functionName: `${cfg.resourcePrefix}-spa-fallback`,
+      code: cloudfront.FunctionCode.fromInline(`
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          var lastSegment = uri.split('/').pop();
+          if (!lastSegment.includes('.')) {
+            request.uri = '/index.html';
+          }
+          return request;
+        }
+      `),
+    });
+
     // Pricing plan: this distribution is subscribed to CloudFront's
     // flat-rate FREE plan (launched Nov 2025 - $0/month, 100GB transfer +
     // 1M requests, bundles WAF/DDoS protection/Route 53/a TLS cert), set
@@ -82,6 +111,9 @@ export class Frontend extends Construct {
         origin: s3Origin,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [
+          { function: spaFallbackFn, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
+        ],
       },
       additionalBehaviors: {
         "api/*": {
@@ -96,11 +128,6 @@ export class Frontend extends Construct {
           ],
         },
       },
-      errorResponses: [
-        // SPA client-side routing: unknown paths fall back to index.html
-        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html", ttl: Duration.seconds(0) },
-        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html", ttl: Duration.seconds(0) },
-      ],
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
   }
