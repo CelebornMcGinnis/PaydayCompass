@@ -167,6 +167,18 @@ export default function CategoryTrendsPage() {
       buckets[mKey][t.category] = (buckets[mKey][t.category] || 0) + t.amount;
     }
 
+    // Every category needs an explicit 0 in every month it had no spend,
+    // not just a missing key - a category with a real transaction in only
+    // one month of the range otherwise has no second point for its line
+    // to connect to (dot={false} on the chart), so it renders as nothing
+    // at all even though the spend is real.
+    const categoryNames = Object.keys(totalsByCategory);
+    for (const m of monthsList) {
+      for (const c of categoryNames) {
+        if (!(c in buckets[m])) buckets[m][c] = 0;
+      }
+    }
+
     return {
       monthlyByCategory: buckets,
       months: monthsList,
