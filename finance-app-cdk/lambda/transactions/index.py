@@ -73,6 +73,7 @@ from finance_common.shared_activity_alerts import notify_owner_of_shared_activit
 from finance_common.low_balance_alerts import check_low_balance_alert
 from finance_common.transfers import execute_transfer
 from finance_common.divisions import adjust_division_balance
+from finance_common.decimal_utils import floats_to_decimal
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
 
 dynamodb = boto3.resource("dynamodb")
@@ -521,18 +522,23 @@ def _delete_purchase(user_id, access, account_id, purchase_id):
 
 
 def _write_audit_log(txn_id, action, before, changes, user_id):
+    # before/changes can nest arbitrarily (before["rows"] is a list of raw
+    # DynamoDB items with real Decimal amounts; changes["splits"] is a list
+    # straight from the request body with raw JSON floats) - the previous
+    # shallow, one-level-deep Decimal->str conversion only ever handled
+    # before/changes' own top-level values, never anything nested inside a
+    # list, so a raw float buried in splits crashed put_item outright
+    # ("Float types are not supported"). floats_to_decimal recurses through
+    # any shape and leaves existing Decimals untouched, so it's used for
+    # both floats and Decimals here instead of two different conversions.
     audit_log_table.put_item(
         Item={
             "transactionId": txn_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": action,  # "edit" | "delete"
             "userId": user_id,
-            "before": {k: (str(v) if isinstance(v, decimal.Decimal) else v) for k, v in before.items()},
-            "changes": (
-                {k: (str(v) if isinstance(v, decimal.Decimal) else v) for k, v in changes.items()}
-                if changes
-                else None
-            ),
+            "before": floats_to_decimal(before),
+            "changes": floats_to_decimal(changes) if changes else None,
         }
     )
 
