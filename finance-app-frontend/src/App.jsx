@@ -26,6 +26,7 @@ import ContactPage from "./pages/Contact";
 import ProjectedVsActualPage from "./pages/ProjectedVsActual";
 import TransferFundsPage from "./pages/TransferFunds";
 import UpcomingRecurringPage from "./pages/UpcomingRecurring";
+import CsvImportExportPage from "./pages/CsvImportExport";
 import NotFoundPage from "./pages/NotFound";
 import { colors, fontBody } from "./lib/theme";
 
@@ -104,6 +105,7 @@ function AppRoutes() {
       <Route path="/projected-vs-actual" element={<RequireAuth><ProjectedVsActualPage /></RequireAuth>} />
       <Route path="/transfer" element={<RequireAuth><TransferFundsPage /></RequireAuth>} />
       <Route path="/upcoming-recurring" element={<RequireAuth><UpcomingRecurringPage /></RequireAuth>} />
+      <Route path="/csv" element={<RequireAuth><CsvImportExportPage /></RequireAuth>} />
       <Route path="*" element={<NotFoundPage />} />
       {/*
         Remaining screens follow the exact same pattern as Dashboard/AddExpense:
