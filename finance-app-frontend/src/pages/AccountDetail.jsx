@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Repeat, Plus, Users, ChevronDown } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid, ReferenceLine } from "recharts";
 import { accountsApi, transactionsApi, divisionsApi, externalBankAccountsApi, paydayApi } from "../lib/apiClient";
-import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
+import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero, formatChartTick } from "../lib/theme";
 import PageHeader from "../components/PageHeader";
 import PageBlurb from "../components/PageBlurb";
 import ConfirmDeleteDialog from "../components/ConfirmDeleteDialog";
@@ -261,14 +261,6 @@ export default function AccountDetailPage() {
     for (let v = niceMin; v <= niceMax + step / 2; v += step) ticks.push(Math.round(v));
     return ticks;
   }, [trendData]);
-
-  function formatBalanceTick(v) {
-    const negative = v < 0;
-    const abs = Math.abs(v);
-    if (abs < 1000) return `${negative ? "−" : ""}$${Math.round(abs)}`;
-    const thousands = (abs / 1000).toFixed(1).replace(/\.0$/, "");
-    return `${negative ? "−" : ""}$${thousands}k`;
-  }
 
   const categoryBreakdown = useMemo(() => {
     if (!transactions) return [];
@@ -568,7 +560,16 @@ export default function AccountDetailPage() {
                   <LineChart data={trendData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
                     <CartesianGrid stroke={colors.border} vertical={false} />
                     <XAxis dataKey="label" tick={{ fill: colors.textMuted, fontSize: 10 }} axisLine={{ stroke: colors.border }} tickLine={false} interval={Math.ceil(trendData.length / 6)} />
-                    <YAxis tick={{ fill: colors.textMuted, fontSize: 10, fontFamily: fontMono }} axisLine={false} tickLine={false} width={44} domain={[balanceTicks[0], balanceTicks[balanceTicks.length - 1]]} ticks={balanceTicks} tickFormatter={formatBalanceTick} />
+                    {/* width=56 (not 44) - the chart's negative left margin
+                        anchors right-aligned tick text around x = margin.left
+                        + width (~8px with the old width), and a 5-character
+                        label like "$1.5k" needs more run-up than that leaves
+                        before it, so its leading characters fell into
+                        negative-x territory outside the SVG viewBox and got
+                        clipped (rendered as ".5k") - confirmed via the DOM's
+                        own text content being correct while only the visual
+                        render was cut off. */}
+                    <YAxis tick={{ fill: colors.textMuted, fontSize: 10, fontFamily: fontMono }} axisLine={false} tickLine={false} width={56} domain={[balanceTicks[0], balanceTicks[balanceTicks.length - 1]]} ticks={balanceTicks} tickFormatter={formatChartTick} />
                     <Tooltip content={<CustomTooltip />} />
                     {chartCrossesZero(trendData, ["balance"]) && <ReferenceLine y={0} stroke={colors.alert} strokeWidth={1.5} />}
                     <Line type="monotone" dataKey="balance" stroke={colors.accentLight} strokeWidth={2} dot={false} activeDot={{ r: 5 }} />

@@ -119,7 +119,11 @@ export default function TransferFundsPage() {
   const toAccount = (accounts || []).find((a) => a.accountId === toAccountId);
   const fromDivision = fromDivisions.find((d) => d.divisionId === fromDivisionId);
   const toDivision = toDivisions.find((d) => d.divisionId === toDivisionId);
-  const sameAccountSameDivision = fromAccountId === toAccountId && fromDivisionId === toDivisionId;
+  // fromAccountId must actually be chosen first - otherwise "" === ""
+  // trivially satisfies both equality checks below and this shows a
+  // "choose a different account" warning before the user has picked
+  // anything at all.
+  const sameAccountSameDivision = !!fromAccountId && fromAccountId === toAccountId && fromDivisionId === toDivisionId;
   const availableBalance = fromDivisionId ? (fromDivision ? fromDivision.balance : 0) : (fromAccount ? fromAccount.balance : 0);
   const wouldGoNegative = parseFloat(amount) > availableBalance;
   const canSave = fromAccountId && toAccountId && !sameAccountSameDivision && parseFloat(amount) > 0 && !wouldGoNegative;
@@ -156,6 +160,18 @@ export default function TransferFundsPage() {
       ]);
       setAmount("");
       setDescription("");
+      // The account/division balances shown above (and in their selects'
+      // "Balance: $X" labels) just changed server-side, but nothing here
+      // re-fetches them automatically - without this they'd keep showing
+      // pre-transfer numbers until the next full page load, even though
+      // the transfer itself (confirmation banner, history table) is
+      // already correctly reflected.
+      accountsApi
+        .list()
+        .then((accts) => setAccounts(accts.filter((a) => !a.sharedFromUserId || a.sharedPermission === "edit")))
+        .catch(() => {});
+      if (fromDivisionId) divisionsApi.list(fromAccountId).then(setFromDivisions).catch(() => {});
+      if (toDivisionId) divisionsApi.list(toAccountId).then(setToDivisions).catch(() => {});
     } catch (err) {
       setError(err.message || "Couldn't complete that transfer.");
     } finally {
