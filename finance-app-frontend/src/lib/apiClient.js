@@ -131,7 +131,7 @@ export const projectionsApi = {
 export const budgetsApi = {
   list: () => api.get("/budgets"),
   upsert: (body) => api.post("/budgets", body),
-  remove: (sk) => api.del(`/budgets/${encodeURIComponent(sk)}`),
+  remove: (sk) => api.del(`/budgets?sk=${encodeURIComponent(sk)}`),
   projectedVsActual: (numPeriods) => api.get(`/budgets/projected-vs-actual?numPeriods=${numPeriods}`),
 };
 

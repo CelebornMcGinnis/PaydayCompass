@@ -61,7 +61,16 @@ def handler(event, context):
     if method == "POST":
         return _upsert_budget(user_id, json.loads(event.get("body") or "{}"))
     if method == "DELETE":
-        sk = event["pathParameters"]["sk"]
+        # sk (e.g. "Groceries#2026-08-20") as a QUERY parameter, not a path
+        # parameter - API Gateway does not reliably URL-decode a %23 (#)
+        # inside a path segment back to a literal "#", so pathParameters.sk
+        # arrived here still percent-encoded and never matched any real
+        # row, making every delete silently 404 regardless of what the
+        # user actually clicked. A query string value doesn't have this
+        # problem - "#" there is just an ordinary percent-encoded character.
+        sk = (event.get("queryStringParameters") or {}).get("sk")
+        if not sk:
+            return _response(400, {"error": "sk query parameter is required"})
         return _delete_budget(user_id, sk)
 
     return _response(405, {"error": "Method not allowed"})

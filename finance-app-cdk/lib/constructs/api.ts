@@ -123,10 +123,11 @@ export class Api extends Construct {
     const budgets = this.restApi.root.addResource("budgets");
     budgets.addMethod("GET", new apigateway.LambdaIntegration(lambdas.budgetsFn), authOptions);
     budgets.addMethod("POST", new apigateway.LambdaIntegration(lambdas.budgetsFn), authOptions);
-    // {sk} is "category#effectiveStartDate" - the frontend must
-    // encodeURIComponent it, since it contains a literal "#"
-    const budgetBySk = budgets.addResource("{sk}");
-    budgetBySk.addMethod("DELETE", new apigateway.LambdaIntegration(lambdas.budgetsFn), authOptions);
+    // sk ("category#effectiveStartDate") travels as a query parameter
+    // (?sk=...), not a path parameter - API Gateway does not reliably
+    // URL-decode a %23 (#) inside a path segment, so a path param here
+    // silently broke every delete (see budgets-fn's own comment on this).
+    budgets.addMethod("DELETE", new apigateway.LambdaIntegration(lambdas.budgetsFn), authOptions);
     // /budgets/projected-vs-actual - total money in vs out per real pay
     // period, not tied to any one category (Category Trends already
     // covers the per-category breakdown)
