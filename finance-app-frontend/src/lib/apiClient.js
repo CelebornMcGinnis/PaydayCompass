@@ -156,6 +156,8 @@ export const recurringApi = {
   remove: (accountId, recurringId) => api.del(`/accounts/${accountId}/recurring/${recurringId}`),
   setOccurrence: (accountId, recurringId, body) =>
     api.put(`/accounts/${accountId}/recurring/${recurringId}/occurrence`, body),
+  markPaid: (accountId, recurringId) => api.post(`/accounts/${accountId}/recurring/${recurringId}/mark-paid`),
+  skip: (accountId, recurringId) => api.post(`/accounts/${accountId}/recurring/${recurringId}/skip`),
 };
 
 export const preferencesApi = {

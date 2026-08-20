@@ -30,6 +30,8 @@ export default function UpcomingRecurringPage() {
   const [editDate, setEditDate] = useState("");
   const [editError, setEditError] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [actioningKey, setActioningKey] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   function refresh() {
     return accountsApi.list().then(async (accts) => {
@@ -63,6 +65,34 @@ export default function UpcomingRecurringPage() {
       setEditError(err.message || "Couldn't save that change.");
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function markPaid(occ, rowKey) {
+    setActioningKey(rowKey);
+    setActionError(null);
+    try {
+      await recurringApi.markPaid(occ.accountId, occ.recurringId);
+      setEditingKey(null);
+      await refresh();
+    } catch (err) {
+      setActionError(err.message || "Couldn't mark that as paid.");
+    } finally {
+      setActioningKey(null);
+    }
+  }
+
+  async function skipOccurrence(occ, rowKey) {
+    setActioningKey(rowKey);
+    setActionError(null);
+    try {
+      await recurringApi.skip(occ.accountId, occ.recurringId);
+      setEditingKey(null);
+      await refresh();
+    } catch (err) {
+      setActionError(err.message || "Couldn't skip that occurrence.");
+    } finally {
+      setActioningKey(null);
     }
   }
 
@@ -206,6 +236,31 @@ export default function UpcomingRecurringPage() {
                                 </button>
                                 <button type="button" onClick={() => setEditingKey(null)} className="flex-1 rounded-lg py-2 text-xs" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>
                               </div>
+                              {occ.occurrenceDate === occ.nextDueDate && (
+                                <>
+                                  {actionError && <p className="text-xs mt-2" style={{ color: colors.alert }}>{actionError}</p>}
+                                  <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: `1px solid ${colors.border}` }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => markPaid(occ, rowKey)}
+                                      disabled={actioningKey === rowKey}
+                                      className="flex-1 rounded-lg py-2 text-xs font-medium"
+                                      style={{ background: colors.positive, color: colors.bg, opacity: actioningKey === rowKey ? 0.6 : 1 }}
+                                    >
+                                      {actioningKey === rowKey ? "Working…" : "Mark as paid"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => skipOccurrence(occ, rowKey)}
+                                      disabled={actioningKey === rowKey}
+                                      className="flex-1 rounded-lg py-2 text-xs"
+                                      style={{ border: `1px solid ${colors.border}`, color: colors.textMuted, opacity: actioningKey === rowKey ? 0.6 : 1 }}
+                                    >
+                                      Skip this one
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

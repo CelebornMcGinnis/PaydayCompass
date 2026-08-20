@@ -9,6 +9,14 @@ Routes:
   PUT    /recurring/{recurringId}/occurrence  -> set a ONE-TIME override amount for the
                                                  next upcoming occurrence only - does not
                                                  change the template's baseline estimate
+  POST   /recurring/{recurringId}/mark-paid   -> post the template's current nextDueDate
+                                                 occurrence right now (same effect as the
+                                                 daily processor or a Payday submit
+                                                 catching it), then advance the schedule
+                                                 one occurrence forward
+  POST   /recurring/{recurringId}/skip        -> advance the schedule past the current
+                                                 nextDueDate WITHOUT posting anything -
+                                                 for a bill that didn't happen this cycle
 
 Frequency options: "weekly", "biweekly", "semimonthly" (two fixed calendar
 days, e.g. 1st & 15th), "monthly", "annual". Schedule fields used per type:
@@ -58,6 +66,7 @@ import boto3
 from finance_common.sharing_access import resolve_account_access
 from finance_common.schedule import next_date_after
 from finance_common.shared_activity_alerts import notify_owner_of_shared_activity
+from finance_common.recurring_posting import post_occurrence, advance_schedule
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
 
 dynamodb = boto3.resource("dynamodb")
@@ -103,6 +112,12 @@ def handler(event, context):
     if resource.endswith("/occurrence") and method == "PUT":
         recurring_id = event["pathParameters"]["recurringId"]
         return _set_occurrence_override(user_id, access, account_id, recurring_id, json.loads(event.get("body") or "{}"))
+    if resource.endswith("/mark-paid") and method == "POST":
+        recurring_id = event["pathParameters"]["recurringId"]
+        return _mark_occurrence_paid(user_id, access, account_id, recurring_id)
+    if resource.endswith("/skip") and method == "POST":
+        recurring_id = event["pathParameters"]["recurringId"]
+        return _skip_occurrence(user_id, access, account_id, recurring_id)
 
     if method == "GET":
         return _list_recurring(account_id)
@@ -386,5 +401,60 @@ def _set_occurrence_override(user_id, access, account_id, recurring_id, body):
     notify_owner_of_shared_activity(access["ownerUserId"], user_id, f"adjusted an upcoming payment's {' and '.join(summary)}")
 
     return _response(200, {"occurrenceDate": occurrence_date, "overrideAmount": override_amount, "overrideDate": override_date})
+
+
+def _mark_occurrence_paid(user_id, access, account_id, recurring_id):
+    """Posts the template's current nextDueDate occurrence right now, the
+    same way the daily processor or a Payday submit catching it would -
+    honors any amount/date override already set for that date via PUT
+    .../occurrence - then advances the schedule exactly one occurrence
+    forward. For a bill you paid outside the app's normal flow and want
+    reflected immediately rather than waiting for tonight's processor run."""
+    template = recurring_table.get_item(Key={"accountId": account_id, "recurringId": recurring_id}).get("Item")
+    if not template:
+        return _response(404, {"error": "recurring template not found"})
+
+    occurrence_date = template["nextDueDate"]
+    item, balance_delta = post_occurrence(template, occurrence_date, source="recurring-manual")
+    next_due = next_date_after(template, occurrence_date)
+    advance_schedule(template, next_due, [occurrence_date])
+
+    notify_owner_of_shared_activity(
+        access["ownerUserId"], user_id, f"marked a recurring payment as paid ({template.get('description') or template.get('category')})"
+    )
+
+    return _response(
+        200,
+        {
+            "recurringId": recurring_id,
+            "occurrenceDate": occurrence_date,
+            "amount": float(item["amount"]),
+            "balanceDelta": float(balance_delta),
+            "nextDueDate": next_due,
+        },
+        default=_decimal_default,
+    )
+
+
+def _skip_occurrence(user_id, access, account_id, recurring_id):
+    """Advances a template's schedule past its current nextDueDate
+    WITHOUT posting anything - for a bill that simply didn't happen this
+    cycle (a subscription canceled mid-period, a paycheck that didn't
+    come, etc). Clears any pending override for the skipped date, the
+    same as if it had actually posted, since there's nothing left to
+    apply it to."""
+    template = recurring_table.get_item(Key={"accountId": account_id, "recurringId": recurring_id}).get("Item")
+    if not template:
+        return _response(404, {"error": "recurring template not found"})
+
+    occurrence_date = template["nextDueDate"]
+    next_due = next_date_after(template, occurrence_date)
+    advance_schedule(template, next_due, [occurrence_date])
+
+    notify_owner_of_shared_activity(
+        access["ownerUserId"], user_id, f"skipped a recurring payment's upcoming occurrence ({template.get('description') or template.get('category')})"
+    )
+
+    return _response(200, {"recurringId": recurring_id, "skippedDate": occurrence_date, "nextDueDate": next_due})
 
 

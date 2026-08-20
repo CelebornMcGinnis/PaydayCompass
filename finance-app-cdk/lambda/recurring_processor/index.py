@@ -28,20 +28,14 @@ separately from the per-user email.
 """
 import os
 import json
-import uuid
-import decimal
 from datetime import date
 import boto3
 from finance_common.schedule import next_date_after
-from finance_common.budget_notify import trigger_budget_check
 from finance_common.cognito_lookup import lookup_email_by_sub
-from finance_common.low_balance_alerts import check_low_balance_alert
-from finance_common.divisions import adjust_division_balance
+from finance_common.recurring_posting import post_occurrence, advance_schedule
 
 dynamodb = boto3.resource("dynamodb")
 recurring_table = dynamodb.Table(os.environ["RECURRING_TABLE"])
-transactions_table = dynamodb.Table(os.environ["TRANSACTIONS_TABLE"])
-accounts_table = dynamodb.Table(os.environ["ACCOUNTS_TABLE"])
 ses_client = boto3.client("ses")
 SES_FROM_ADDRESS = os.environ.get("SES_FROM_ADDRESS", "alerts@example.com")
 
@@ -59,11 +53,11 @@ def handler(event, context):
                 continue
 
             for occurrence_date in occurrence_dates:
-                _post_occurrence(template, occurrence_date)
+                post_occurrence(template, occurrence_date, source="recurring")
                 processed += 1
 
             next_due = next_date_after(template, occurrence_dates[-1])
-            _advance_template(template, next_due, occurrence_dates)
+            advance_schedule(template, next_due, occurrence_dates)
         except Exception as e:
             failures.append({"recurringId": template.get("recurringId"), "error": str(e)})
             _notify_user_of_processing_failure(template)
@@ -126,75 +120,7 @@ def _compute_occurrences(template, today):
     return occurrences
 
 
-def _post_occurrence(template, occurrence_date):
-    account_id = template["accountId"]
-    is_income = template.get("isIncome", False)
-
-    overrides = template.get("occurrenceOverrides") or {}
-    override = overrides.get(occurrence_date)
-    amount = decimal.Decimal(str(override)) if override is not None else decimal.Decimal(str(template["estimatedAmount"]))
-
-    # A date override moves when this ONE occurrence actually posts,
-    # without touching the underlying schedule - the NEXT occurrence is
-    # still computed from occurrence_date (the original scheduled date),
-    # never from effective_date, so a one-off reschedule doesn't drag
-    # every future occurrence along with it.
-    date_overrides = template.get("occurrenceDateOverrides") or {}
-    effective_date = date_overrides.get(occurrence_date, occurrence_date)
-
-    txn_id = str(uuid.uuid4())
-    item = {
-        "accountId": account_id,
-        "sk": f"{effective_date}#{txn_id}",
-        "userId": template["userId"],
-        "amount": amount,  # NET - what actually posts to the balance
-        "category": template.get("category", "Uncategorized"),
-        "description": template.get("description", ""),
-        "direction": "credit" if is_income else "debit",
-        "createdAt": effective_date,
-        "source": "recurring",
-        "recurringId": template["recurringId"],
-        "wasOverridden": override is not None,
-    }
-    if is_income and template.get("grossAmount") is not None:
-        item["grossAmount"] = decimal.Decimal(str(template["grossAmount"]))  # reference only, not used for balance
-    if template.get("externalBankAccountId"):
-        item["externalBankAccountId"] = template["externalBankAccountId"]
-
-    transactions_table.put_item(Item=item)
-
-    balance_delta = amount if is_income else -amount
-    balance_result = accounts_table.update_item(
-        Key={"userId": template["userId"], "accountId": account_id},
-        UpdateExpression="ADD balance :delta",
-        ExpressionAttributeValues={":delta": balance_delta},
-        ReturnValues="UPDATED_NEW",
-    )
-    check_low_balance_alert(template["userId"], account_id, balance_result["Attributes"]["balance"])
-
-    if template.get("divisionId"):
-        adjust_division_balance(account_id, template["divisionId"], balance_delta)
-
-    if not is_income:
-        trigger_budget_check(template["userId"], account_id, template.get("category", "Uncategorized"), amount)
-
-
-def _advance_template(template, next_due, posted_dates):
-    remaining_overrides = {
-        k: v for k, v in (template.get("occurrenceOverrides") or {}).items()
-        if k not in posted_dates
-    }
-    remaining_date_overrides = {
-        k: v for k, v in (template.get("occurrenceDateOverrides") or {}).items()
-        if k not in posted_dates
-    }
-    recurring_table.update_item(
-        Key={"accountId": template["accountId"], "recurringId": template["recurringId"]},
-        UpdateExpression="SET nextDueDate = :next, lastProcessedDate = :today, occurrenceOverrides = :overrides, occurrenceDateOverrides = :dateOverrides",
-        ExpressionAttributeValues={
-            ":next": next_due,
-            ":today": date.today().isoformat(),
-            ":overrides": remaining_overrides,
-            ":dateOverrides": remaining_date_overrides,
-        },
-    )
+# Posting a single occurrence and advancing the schedule afterward now
+# live in finance_common.recurring_posting, shared with recurring-fn's
+# manual "mark as paid"/"skip" actions - see that module's docstring for
+# why this used to be a separate, independently-drifted copy here.
