@@ -233,8 +233,6 @@ def _respond_to_invites(invited_user_id, owner_user_id, body):
         IndexName="byInvitedUser",
         KeyConditionExpression="invitedUserId = :uid AND begins_with(shareKey, :prefix)",
         ExpressionAttributeValues={":uid": invited_user_id, ":prefix": f"{invited_user_id}#"},
-        FilterExpression="ownerUserId = :owner AND #s = :pending",
-        ExpressionAttributeNames={"#s": "status"},
     ).get("Items", [])
     # byInvitedUser's key condition can't filter on ownerUserId directly
     # (it's not part of that index's key), so it's applied as a filter
