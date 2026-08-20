@@ -219,13 +219,16 @@ export class Lambdas extends Construct {
       true
     );
     tables.recurringTable.grantReadWriteData(this.recurringFn);
-    tables.accountsTable.grantReadData(this.recurringFn); // resolve_account_access checks ownership
+    tables.accountsTable.grantReadWriteData(this.recurringFn); // resolve_account_access checks ownership; mark-paid posts a real balance change
     tables.sharingTable.grantReadData(this.recurringFn); // resolve_account_access - shared-account authorization
-    tables.userPreferencesTable.grantReadData(this.recurringFn); // shared-activity alert opt-out check
-    tables.transactionsTable.grantWriteData(this.recurringFn); // retroactive backfill entries (trend-only, no balance impact)
-    tables.divisionsTable.grantReadData(this.recurringFn); // validate a provided divisionId belongs to the same account
+    tables.userPreferencesTable.grantReadData(this.recurringFn); // shared-activity alert opt-out check; low-balance alert check on mark-paid
+    tables.transactionsTable.grantReadWriteData(this.recurringFn); // retroactive backfill entries (trend-only, no balance impact); mark-paid posts a real transaction
+    tables.divisionsTable.grantReadWriteData(this.recurringFn); // validate a provided divisionId belongs to the same account; mark-paid adjusts a division's own balance
+    tables.budgetsTable.grantReadData(this.recurringFn); // mark-paid's budget-threshold check
     this.recurringFn.addToRolePolicy(sesSendPolicy(this, cfg.sesFromAddress)); // shared-activity alert email
     this.recurringFn.addToRolePolicy(cognitoListUsersPolicy(props.userPool.userPoolArn)); // resolve owner/actor emails
+    this.recurringFn.addEnvironment("NOTIFICATIONS_FN_NAME", this.notificationsFn.functionName);
+    this.notificationsFn.grantInvoke(this.recurringFn); // mark-paid's budget-threshold check
 
     // --- Divisions: named sub-allocations within one account's balance ---
     this.divisionsFn = baseFnProps(

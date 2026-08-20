@@ -112,6 +112,12 @@ export class Api extends Construct {
     recurringItem
       .addResource("occurrence")
       .addMethod("PUT", new apigateway.LambdaIntegration(lambdas.recurringFn), authOptions);
+    recurringItem
+      .addResource("mark-paid")
+      .addMethod("POST", new apigateway.LambdaIntegration(lambdas.recurringFn), authOptions);
+    recurringItem
+      .addResource("skip")
+      .addMethod("POST", new apigateway.LambdaIntegration(lambdas.recurringFn), authOptions);
 
     // /transactions/transfer (between own accounts)
     const transfer = this.restApi.root
