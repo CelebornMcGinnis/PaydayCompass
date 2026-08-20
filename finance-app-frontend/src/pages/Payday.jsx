@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, Plus, Trash2, Check, ArrowDownLeft, ArrowUpRight, UserX, ChevronDown } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2, Check, ArrowDownLeft, ArrowUpRight, UserX, ChevronDown, AlertTriangle } from "lucide-react";
 import { paydayApi, accountsApi, budgetsApi, divisionsApi, recurringApi, plannedExpensesApi } from "../lib/apiClient";
 import { getCurrentUserEmail } from "../lib/cognito";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
@@ -17,6 +17,27 @@ function draftStorageKey() {
 
 function uid() {
   return Math.random().toString(36).slice(2, 9);
+}
+
+// Labels for the per-item failure types payday-fn's _submit can report -
+// everything else in the batch still posted normally (see the backend's
+// per-item try/except in _submit), this is just naming which specific
+// piece needs a manual follow-up.
+function describePaydayError(e) {
+  switch (e.type) {
+    case "recurring":
+      return `A recurring expense didn't post${e.error ? ` (${e.error})` : ""} - it's still showing as due, try marking it paid from Upcoming expenses.`;
+    case "additional":
+      return `"${e.description || "An extra transaction"}" didn't post${e.error ? ` (${e.error})` : ""} - add it manually if it should count.`;
+    case "budgetTransfer":
+      return `The ${e.category} budget set-aside didn't transfer${e.error ? ` (${e.error})` : ""} - move it manually if needed.`;
+    case "plannedTransfer":
+      return `The transfer toward "${e.name || "a planned expense"}" didn't go through${e.error ? ` (${e.error})` : ""}.`;
+    case "plannedExpenseUpdate":
+      return `"${e.name || "A planned expense"}"'s transfer went through, but its progress total didn't update - check it on Planned Expenses.`;
+    default:
+      return e.error || "Something in this batch didn't complete.";
+  }
 }
 
 function ExpenseRow({ item, accountName, amount, onAmountChange, readOnly, onNavigate }) {
@@ -171,6 +192,7 @@ export default function PaydayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [updatedBalances, setUpdatedBalances] = useState([]);
+  const [submitErrors, setSubmitErrors] = useState([]);
   const newBalancesRef = useRef(null);
 
   useEffect(() => {
@@ -346,6 +368,7 @@ export default function PaydayPage() {
       });
       setSubmitted(true);
       setUpdatedBalances(result?.updatedBalances || []);
+      setSubmitErrors(result?.errors || []);
       try {
         localStorage.removeItem(draftStorageKey());
       } catch {
@@ -399,6 +422,22 @@ export default function PaydayPage() {
         <div className="px-5 pt-6 max-w-md mx-auto">
           <PageBlurb>Everything due before your next paycheck, adjustable, submitted as one batch.</PageBlurb>
           <PaydaySelector viewDate={viewDate} onSelectDate={setViewDate} onReset={() => setViewDate(null)} />
+
+          {data.mode === "history" && (data.errors || []).length > 0 && (
+            <div className="rounded-2xl p-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.alert}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={16} color={colors.alert} />
+                <p className="text-sm font-medium" style={{ color: colors.text }}>
+                  {data.errors.length === 1 ? "One item" : `${data.errors.length} items`} in this payday didn't go through
+                </p>
+              </div>
+              <ul className="text-xs" style={{ color: colors.textMuted }}>
+                {data.errors.map((e, i) => (
+                  <li key={i} className="py-1" style={{ borderTop: i > 0 ? `1px solid ${colors.border}` : "none" }}>{describePaydayError(e)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {data.mode === "history" && (
             <div className="rounded-2xl px-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
@@ -868,6 +907,22 @@ export default function PaydayPage() {
             <span className="text-xs" style={{ color: colors.textMuted }}>Left over after this payday</span>
             <span style={{ fontFamily: fontMono, fontSize: 17, color: leftover >= 0 ? colors.positive : colors.alert }}>{formatMoney(leftover)}</span>
           </div>
+
+          {submitted && submitErrors.length > 0 && (
+            <div className="rounded-2xl p-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.alert}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle size={16} color={colors.alert} />
+                <p className="text-sm font-medium" style={{ color: colors.text }}>
+                  Everything else posted, but {submitErrors.length === 1 ? "one item" : `${submitErrors.length} items`} didn't go through
+                </p>
+              </div>
+              <ul className="text-xs" style={{ color: colors.textMuted }}>
+                {submitErrors.map((e, i) => (
+                  <li key={i} className="py-1" style={{ borderTop: i > 0 ? `1px solid ${colors.border}` : "none" }}>{describePaydayError(e)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {submitted && updatedBalances.length > 0 && (
             <div className="mb-5" ref={newBalancesRef}>

@@ -519,13 +519,31 @@ def _aggregate_by_external_account(due_expenses, external_account_names, current
 
 
 def _submit(user_id, body):
+    # A batch submission moves real money across many independent items
+    # (each recurring occurrence, each unpredicted extra, each budget/
+    # planned-expense transfer). Every item below is wrapped so one
+    # item's failure can't abort the rest of the batch or, worse, skip
+    # _save_payday_history entirely and leave whatever DID post
+    # untracked and unreversible - that's exactly what happened before
+    # this existed (an orphaned "Budget set-aside" transfer with no
+    # history record, caused by a transfer that had already succeeded
+    # throwing afterward on an unrelated notification check).
     posted = []
+    errors = []
 
     for adj in body.get("recurringAdjustments", []):
-        posted.append(_post_recurring_occurrence(user_id, adj))
+        try:
+            posted.append(_post_recurring_occurrence(user_id, adj))
+        except Exception as e:
+            print(f"payday: recurring occurrence post failed for user {user_id}, adj={adj}: {e}")
+            errors.append({"type": "recurring", "recurringId": adj.get("recurringId"), "accountId": adj.get("accountId"), "error": str(e)})
 
     for extra in body.get("additionalTransactions", []):
-        posted.append(_post_additional_transaction(user_id, extra))
+        try:
+            posted.append(_post_additional_transaction(user_id, extra))
+        except Exception as e:
+            print(f"payday: additional transaction post failed for user {user_id}, extra={extra}: {e}")
+            errors.append({"type": "additional", "accountId": extra.get("accountId"), "description": extra.get("description"), "error": str(e)})
 
     # Move real money for budgeted categories and planned-expense
     # contributions - only for ones with a destination account actually
@@ -563,10 +581,15 @@ def _submit(user_id, body):
                 amount = decimal.Decimal(str(round(max(prorated_cap - spent_this_period, 0), 2)))
             if amount <= 0:
                 continue
-            result = execute_transfer(
-                accounts_table, transactions_table, user_id, source_account_id, dest, amount,
-                description=f"Budget set-aside: {b['category']}",
-            )
+            try:
+                result = execute_transfer(
+                    accounts_table, transactions_table, user_id, source_account_id, dest, amount,
+                    description=f"Budget set-aside: {b['category']}",
+                )
+            except Exception as e:
+                print(f"payday: budget transfer failed for user {user_id}, category={b['category']}: {e}")
+                errors.append({"type": "budgetTransfer", "category": b["category"], "toAccountId": dest, "error": str(e)})
+                continue
             if result:
                 transfers.append({
                     "category": b["category"], "amount": amount, "toAccountId": dest, "transferId": result["transferId"],
@@ -601,10 +624,15 @@ def _submit(user_id, body):
                 amount = decimal.Decimal(str(pe_summary["amount"]))
             if amount <= 0:
                 continue
-            result = execute_transfer(
-                accounts_table, transactions_table, user_id, source_account_id, dest, amount,
-                description=f"Planned expense: {pe.get('name', '')}",
-            )
+            try:
+                result = execute_transfer(
+                    accounts_table, transactions_table, user_id, source_account_id, dest, amount,
+                    description=f"Planned expense: {pe.get('name', '')}",
+                )
+            except Exception as e:
+                print(f"payday: planned expense transfer failed for user {user_id}, plannedExpenseId={pe['plannedExpenseId']}: {e}")
+                errors.append({"type": "plannedTransfer", "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "error": str(e)})
+                continue
             if result:
                 transfers.append({
                     "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "amount": amount, "toAccountId": dest, "transferId": result["transferId"],
@@ -621,28 +649,43 @@ def _submit(user_id, body):
                 })
                 if pe.get("divisionId"):
                     adjust_division_balance(dest, pe["divisionId"], amount)
-                # Real money actually moved toward this - reflect it in
+                # Real money actually moved toward this (already recorded
+                # in transfers above, so it's tracked/reversible even if
+                # the rest of this block fails) - reflect it in
                 # amountSaved so progress on the Planned Expenses page
                 # matches what's genuinely been set aside, not just what
                 # was originally suggested.
-                pe_result = planned_expenses_table.update_item(
-                    Key={"userId": user_id, "plannedExpenseId": pe["plannedExpenseId"]},
-                    UpdateExpression="ADD amountSaved :amt",
-                    ExpressionAttributeValues={":amt": amount},
-                    ReturnValues="ALL_NEW",
-                )
-                pe_updated = pe_result.get("Attributes", {})
-                if not pe_updated.get("completed", False) and is_funded(pe_updated):
-                    complete_planned_expense(planned_expenses_table, user_id, pe_updated)
+                try:
+                    pe_result = planned_expenses_table.update_item(
+                        Key={"userId": user_id, "plannedExpenseId": pe["plannedExpenseId"]},
+                        UpdateExpression="ADD amountSaved :amt",
+                        ExpressionAttributeValues={":amt": amount},
+                        ReturnValues="ALL_NEW",
+                    )
+                    pe_updated = pe_result.get("Attributes", {})
+                    if not pe_updated.get("completed", False) and is_funded(pe_updated):
+                        complete_planned_expense(planned_expenses_table, user_id, pe_updated)
+                except Exception as e:
+                    print(f"payday: planned expense progress update failed for user {user_id}, plannedExpenseId={pe['plannedExpenseId']}: {e}")
+                    errors.append({"type": "plannedExpenseUpdate", "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "error": str(e)})
 
     # TODO: trigger budget threshold notifications per affected category,
     # same as the daily recurring processor and manual expense entry do.
 
-    notification_results = [
-        _send_peer_notification(user_id, n) for n in body.get("peerNotifications", [])
-    ]
+    # Save history now, before peer notifications - every real money
+    # movement above is already final by this point, so a peer
+    # notification failing (a bad agreement lookup, an SES error) must
+    # never risk losing the history record that makes everything above
+    # trackable and reversible.
+    _save_payday_history(user_id, posted, transfers, errors)
 
-    _save_payday_history(user_id, posted, transfers)
+    notification_results = []
+    for n in body.get("peerNotifications", []):
+        try:
+            notification_results.append(_send_peer_notification(user_id, n))
+        except Exception as e:
+            print(f"payday: peer notification failed for user {user_id}, recipient={n.get('recipientUserId')}: {e}")
+            notification_results.append({"recipientUserId": n.get("recipientUserId"), "status": "error", "error": str(e)})
 
     # Collect every account this submission actually touched, so the
     # frontend can show a real "here's what changed" summary rather than
@@ -677,7 +720,7 @@ def _submit(user_id, body):
 
     return _response(
         201,
-        {"posted": posted, "transfers": transfers, "peerNotifications": notification_results, "updatedBalances": updated_balances},
+        {"posted": posted, "transfers": transfers, "errors": errors, "peerNotifications": notification_results, "updatedBalances": updated_balances},
         default=_decimal_default,
     )
 
@@ -779,12 +822,16 @@ def _reverse_payday(user_id, payday_date):
     return _response(200, {"reversed": True, "skippedItems": skipped})
 
 
-def _save_payday_history(user_id, posted, transfers=None):
+def _save_payday_history(user_id, posted, transfers=None, errors=None):
     """A snapshot for browsing past paydays - deliberately disposable
     (TTL'd after 1.5 years), unlike the real transactions it corresponds
     to, which are kept indefinitely and remain the actual source of
     truth. Best-effort: a failure here should never block the real
-    submit, which has already happened by this point."""
+    submit, which has already happened by this point. errors is the
+    list of items that failed to post/transfer during this submission
+    (see _submit) - kept alongside posted/transfers so a partial
+    submission is visible in history, not indistinguishable from a
+    clean one."""
     try:
         today = date.today().isoformat()
         expires_at = int((datetime.now(timezone.utc) + timedelta(days=548)).timestamp())
@@ -794,6 +841,7 @@ def _save_payday_history(user_id, posted, transfers=None):
             "submittedAt": datetime.now(timezone.utc).isoformat(),
             "posted": _to_decimal(posted),
             "transfers": _to_decimal(transfers or []),
+            "errors": _to_decimal(errors or []),
             "reversed": False,
             "expiresAt": expires_at,
         })
