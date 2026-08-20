@@ -45,6 +45,13 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
     let attempts = 0;
     let timeoutId;
 
+    // Clear the previous step's spotlight position immediately - without
+    // this, a step whose target takes a moment to resolve (or never
+    // does) would show the NEW step's title/body over the OLD step's
+    // spotlight box for the length of the retry loop below, which reads
+    // as the highlight pointing at the wrong thing.
+    setRect(null);
+
     function measure() {
       const el = resolveStepElement(step);
       if (el) {
