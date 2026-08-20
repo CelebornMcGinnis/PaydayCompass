@@ -112,14 +112,24 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
         zIndex: 100,
       };
 
-  // Position the card below the spotlighted element, or centered if there's no target
+  // Position the card below the spotlighted element, or centered if there's no
+  // target. The 180 floor keeps the card from starting too low when the
+  // spotlighted element is near the bottom of the viewport (e.g. Payday's
+  // fixed submit bar) - but a longer step body can still be taller than
+  // that reserved space, which would push its Next/Done button below the
+  // viewport and out of reach. maxHeight + overflowY guarantee the button
+  // row stays reachable (via a scroll inside the card) no matter how long
+  // a given step's body text is or where the spotlighted element sits.
+  const cardTop = rect ? Math.min(rect.bottom + padding + 12, window.innerHeight - 180) : null;
   const cardStyle = rect
     ? {
         position: "fixed",
-        top: Math.min(rect.bottom + padding + 12, window.innerHeight - 180),
+        top: cardTop,
         left: 20,
         right: 20,
         zIndex: 101,
+        maxHeight: window.innerHeight - cardTop - 20,
+        overflowY: "auto",
       }
     : {
         position: "fixed",
@@ -128,12 +138,17 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
         right: 20,
         transform: "translateY(-50%)",
         zIndex: 101,
+        maxHeight: "calc(100dvh - 40px)",
+        overflowY: "auto",
       };
 
   return (
     <>
       <div style={spotlightStyle} />
-      <div style={{ ...cardStyle, background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}`, fontFamily: fontBody }} className="max-w-sm mx-auto rounded-2xl p-5">
+      <div
+        style={{ ...cardStyle, background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}`, fontFamily: fontBody }}
+        className="max-w-sm mx-auto rounded-2xl p-5"
+      >
         <div className="flex items-start justify-between mb-2">
           <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 17, fontWeight: 600 }}>{step.title}</h3>
           <button onClick={onFinish} aria-label="Skip tour" style={{ color: colors.textMuted }}>
