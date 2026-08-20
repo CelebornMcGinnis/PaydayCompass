@@ -317,6 +317,7 @@ export class Lambdas extends Construct {
     tables.budgetsTable.grantReadData(this.paydayFn); // budgeted-expense reminders now shown on Payday
     tables.plannedExpensesTable.grantReadData(this.paydayFn); // planned-expense contributions folded into "unpredicted" per the user's own definition
     tables.divisionsTable.grantReadWriteData(this.paydayFn); // adjust a division's own balance when a division-tagged item posts during submit
+    tables.userPreferencesTable.grantReadData(this.paydayFn); // low-balance alert preference check inside execute_transfer
     this.paydayFn.addToRolePolicy(cognitoListUsersPolicy(props.userPool.userPoolArn)); // resolve recipient/sender emails for the notification email
     this.paydayFn.addToRolePolicy(sesSendPolicy(this, cfg.sesFromAddress));
 
