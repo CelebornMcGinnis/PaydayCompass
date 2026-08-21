@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, X, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, X, Check, Trash2, ChevronDown } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { accountsApi, recurringApi, scenariosApi } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney, chartCrossesZero } from "../lib/theme";
@@ -30,6 +30,12 @@ function AdjustmentRow({ children, onRemove }) {
 
 const FREQUENCY_ABBR = { weekly: "wk", biweekly: "2wk", semimonthly: "2x/mo", monthly: "mo", annual: "yr" };
 const FREQUENCY_TO_MONTHLY = { weekly: 52 / 12, biweekly: 26 / 12, semimonthly: 2, monthly: 1, annual: 1 / 12 };
+const FREQUENCY_LABEL = { weekly: "week", biweekly: "2 weeks", semimonthly: "half-month", monthly: "month", annual: "year" };
+// Same days-per-period approach as finance_common.planned_expenses's
+// suggested_contribution, extended with the frequencies this page
+// already offers elsewhere - real elapsed days divided into periods,
+// not calendar months, so a goal set mid-month is still accurate.
+const DAYS_PER_PERIOD = { weekly: 7, biweekly: 14, semimonthly: 365.25 / 24, monthly: 365.25 / 12, annual: 365.25 };
 
 function monthlyEquivalent(item) {
   if (item.frequency === "custom") {
@@ -61,6 +67,11 @@ export default function ScenariosPage() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [goalTarget, setGoalTarget] = useState("");
+  const [goalDate, setGoalDate] = useState("");
+  const [goalAlreadySaved, setGoalAlreadySaved] = useState("");
+  const [goalFrequency, setGoalFrequency] = useState("monthly");
 
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [compareResult, setCompareResult] = useState(null);
@@ -183,6 +194,18 @@ export default function ScenariosPage() {
     }
   }
 
+  const goalResult = useMemo(() => {
+    const target = parseFloat(goalTarget);
+    if (!target || target <= 0 || !goalDate) return null;
+    const remaining = target - (parseFloat(goalAlreadySaved) || 0);
+    if (remaining <= 0) return { alreadyThere: true };
+
+    const daysRemaining = Math.max((new Date(`${goalDate}T00:00:00`) - new Date()) / 86400000, 1);
+    const perMonth = remaining / Math.max(daysRemaining / DAYS_PER_PERIOD.monthly, 1);
+    const perPeriod = remaining / Math.max(daysRemaining / DAYS_PER_PERIOD[goalFrequency], 1);
+    return { perMonth, perPeriod, isPast: (new Date(`${goalDate}T00:00:00`) - new Date()) < 0 };
+  }, [goalTarget, goalDate, goalAlreadySaved, goalFrequency]);
+
   const chartData = useMemo(() => {
     if (!trendResult) return [];
     return trendResult.baseline.map((point, i) => {
@@ -211,7 +234,10 @@ export default function ScenariosPage() {
         <div className="rounded-2xl p-4 mb-6" data-wizard-target="wizard-scenarios-build" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (e.g. If I got a raise)" className="w-full rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }} />
 
-          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing income</p>
+          <div className="flex items-center mb-2">
+            <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing income</p>
+            <InfoBubble text="Change one of your real income sources' amount for this scenario only - your actual recurring template isn't touched." />
+          </div>
           {incomeAdjustments.map((a) => (
             <div key={a.id} className="mb-2">
               <AdjustmentRow onRemove={() => setIncomeAdjustments((r) => r.filter((x) => x.id !== a.id))}>
@@ -227,40 +253,50 @@ export default function ScenariosPage() {
                   <option value="">Choose…</option>
                   {incomeOptions.map((i) => <option key={i.recurringId} value={i.recurringId}>{i.description} ({formatMoney(i.estimatedAmount)}/{FREQUENCY_ABBR[i.frequency] || i.frequency})</option>)}
                 </select>
-                <input type="number" value={a.newAmount} onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 90, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
+                <input type="number" value={a.newAmount} onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 112, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
               {a.recurringId && (
-                <input
-                  type="date"
-                  value={a.startDate || ""}
-                  onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
-                  className="w-full rounded-lg px-2.5 py-1.5 text-xs mt-1.5 focus:outline-none"
-                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-                />
+                <>
+                  <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
+                  <input
+                    type="date"
+                    value={a.startDate || ""}
+                    onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
+                    className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                  />
+                </>
               )}
             </div>
           ))}
           <button onClick={() => setIncomeAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an income</button>
 
-          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New hypothetical income</p>
+          <div className="flex items-center mb-2">
+            <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New recurring income</p>
+            <InfoBubble text="Model an income source you don't have yet - a raise, a new job, a side gig - without creating a real recurring template. For a single non-repeating windfall, use One-time expense below with a positive amount instead." />
+          </div>
           {newIncome.map((i) => (
             <div key={i.id} className="mb-2">
               <AdjustmentRow onRemove={() => setNewIncome((r) => r.filter((x) => x.id !== i.id))}>
                 <input value={i.description} onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, description: e.target.value } : x))} placeholder="e.g. Side gig" className="flex-1 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }} />
                 <input type="number" value={i.monthlyAmount} onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, monthlyAmount: e.target.value } : x))} placeholder="$/mo" style={{ width: 80, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
+              <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
               <input
                 type="date"
                 value={i.startDate || ""}
                 onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, startDate: e.target.value } : x))}
-                className="w-full rounded-lg px-2.5 py-1.5 text-xs mt-1.5 focus:outline-none"
+                className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
                 style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
               />
             </div>
           ))}
           <button onClick={() => setNewIncome((r) => [...r, { id: uid(), description: "", monthlyAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical income</button>
 
-          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing expense</p>
+          <div className="flex items-center mb-2">
+            <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing expense</p>
+            <InfoBubble text="Change one of your real recurring bills' amount for this scenario only - your actual recurring template isn't touched." />
+          </div>
           {expenseAdjustments.map((a) => (
             <div key={a.id} className="mb-2">
               <AdjustmentRow onRemove={() => setExpenseAdjustments((r) => r.filter((x) => x.id !== a.id))}>
@@ -276,33 +312,40 @@ export default function ScenariosPage() {
                   <option value="">Choose…</option>
                   {expenseOptions.map((e) => <option key={e.recurringId} value={e.recurringId}>{e.description} ({formatMoney(e.estimatedAmount)}/{FREQUENCY_ABBR[e.frequency] || e.frequency})</option>)}
                 </select>
-                <input type="number" value={a.newAmount} onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 90, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
+                <input type="number" value={a.newAmount} onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 112, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
               {a.recurringId && (
-                <input
-                  type="date"
-                  value={a.startDate || ""}
-                  onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
-                  className="w-full rounded-lg px-2.5 py-1.5 text-xs mt-1.5 focus:outline-none"
-                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-                />
+                <>
+                  <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
+                  <input
+                    type="date"
+                    value={a.startDate || ""}
+                    onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
+                    className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                  />
+                </>
               )}
             </div>
           ))}
           <button onClick={() => setExpenseAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an expense</button>
 
-          <p className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New hypothetical expenses</p>
+          <div className="flex items-center mb-2">
+            <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New recurring expense</p>
+            <InfoBubble text="Model a new ongoing bill you don't have yet - a subscription, a new payment - without creating a real recurring template. For a single non-repeating cost, use One-time expense below instead." />
+          </div>
           {newExpenses.map((e) => (
             <div key={e.id} className="mb-2">
               <AdjustmentRow onRemove={() => setNewExpenses((r) => r.filter((x) => x.id !== e.id))}>
                 <input value={e.description} onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, description: ev.target.value } : x))} placeholder="e.g. Gym membership" className="flex-1 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }} />
                 <input type="number" value={e.monthlyAmount} onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, monthlyAmount: ev.target.value } : x))} placeholder="$/mo" style={{ width: 80, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
+              <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
               <input
                 type="date"
                 value={e.startDate || ""}
                 onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, startDate: ev.target.value } : x))}
-                className="w-full rounded-lg px-2.5 py-1.5 text-xs mt-1.5 focus:outline-none"
+                className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
                 style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
               />
             </div>
@@ -346,6 +389,61 @@ export default function ScenariosPage() {
             </p>
           </div>
         )}
+
+        <SectionHeader info="Splits the remaining amount evenly across the real days between now and your target date - the same math Planned Expenses uses for its own suggested contribution. This is a quick calculator only; it doesn't create a real Planned Expense or move any money.">
+          Savings goal
+        </SectionHeader>
+        <div className="rounded-2xl p-4 mb-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1">
+              <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Target amount</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: colors.textMuted, fontFamily: fontMono }}>$</span>
+                <input type="number" inputMode="decimal" value={goalTarget} onChange={(e) => setGoalTarget(e.target.value)} placeholder="0.00" className="w-full rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>By when</label>
+              <input type="date" value={goalDate} onChange={(e) => setGoalDate(e.target.value)} className="w-full rounded-lg px-2.5 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div className="flex gap-2 mb-4">
+            <div className="flex-1">
+              <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Already saved <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: colors.textMuted, fontFamily: fontMono }}>$</span>
+                <input type="number" inputMode="decimal" value={goalAlreadySaved} onChange={(e) => setGoalAlreadySaved(e.target.value)} placeholder="0.00" className="w-full rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Show per</label>
+              <div className="relative">
+                <select value={goalFrequency} onChange={(e) => setGoalFrequency(e.target.value)} className="w-full appearance-none rounded-lg px-2.5 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}>
+                  {Object.keys(DAYS_PER_PERIOD).map((f) => <option key={f} value={f}>{FREQUENCY_LABEL[f]}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
+            </div>
+          </div>
+
+          {goalResult && (
+            <div className="rounded-xl p-3" style={{ background: colors.surfaceRaised, border: `1px solid ${colors.border}` }}>
+              {goalResult.alreadyThere ? (
+                <p className="text-sm" style={{ color: colors.positive }}>You've already saved enough for this goal.</p>
+              ) : (
+                <>
+                  {goalResult.isPast && (
+                    <p className="text-xs mb-2" style={{ color: colors.alert }}>That date has already passed - showing what you'd need to set aside right away.</p>
+                  )}
+                  <p style={{ fontFamily: fontMono, fontSize: 20, color: colors.text }}>{formatMoney(goalResult.perMonth)}<span className="text-sm" style={{ color: colors.textMuted }}>/month</span></p>
+                  {goalFrequency !== "monthly" && (
+                    <p className="text-xs mt-1" style={{ color: colors.textMuted, fontFamily: fontMono }}>{formatMoney(goalResult.perPeriod)} per {FREQUENCY_LABEL[goalFrequency]}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <SectionHeader>Saved scenarios</SectionHeader>
         <div className="rounded-2xl mb-4 overflow-hidden" data-wizard-target="wizard-scenarios-saved" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>

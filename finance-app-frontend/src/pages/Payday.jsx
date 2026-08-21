@@ -165,6 +165,11 @@ export default function PaydayPage() {
   const [viewDate, setViewDate] = useState(null); // null = default: the real next (not-yet-submitted) payday
   const [data, setData] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  // Which account budget/planned-expense transfers draw from. Defaults to
+  // whichever income is listed first, matching the old implicit behavior,
+  // but is only ever user-relevant (and only shown) when income this
+  // payday actually spans more than one account - see the selector below.
+  const [selectedSourceAccountId, setSelectedSourceAccountId] = useState(null);
   const [editingKey, setEditingKey] = useState(null);
   const [incomeEditAmount, setIncomeEditAmount] = useState("");
   const [incomeEditError, setIncomeEditError] = useState(null);
@@ -238,6 +243,10 @@ export default function PaydayPage() {
         setPlannedExpenseAmounts(Object.fromEntries(
           [...(d.plannedExpenseContributions || []), ...(d.overduePlannedExpenses || [])].map((pe) => [pe.plannedExpenseId, pe.amount])
         ));
+        // Defaults to whichever income is listed first - same as the old
+        // implicit behavior - but stays user-adjustable via the selector
+        // below when income this payday spans more than one account.
+        setSelectedSourceAccountId(d.income[0]?.accountId || null);
       }
       return d;
     });
@@ -341,7 +350,7 @@ export default function PaydayPage() {
     setError(null);
     try {
       const result = await paydayApi.submit({
-        sourceAccountId: data.income[0]?.accountId,
+        sourceAccountId: selectedSourceAccountId || data.income[0]?.accountId,
         recurringAdjustments: data.upcomingExpenses
           .map((e) => ({
             recurringId: e.recurringId,
@@ -382,6 +391,10 @@ export default function PaydayPage() {
   }
 
   const accountsById = Object.fromEntries(accounts.map((a) => [a.accountId, a.name]));
+  // Only worth showing/choosing when this payday's income actually spans
+  // more than one account - the common single-income-account case stays
+  // exactly as simple as before.
+  const incomeAccountIds = data?.income ? [...new Set(data.income.map((i) => i.accountId))] : [];
 
   if (error && !data) {
     return (
@@ -567,6 +580,26 @@ export default function PaydayPage() {
               );
             })}
           </div>
+          )}
+
+          {data.mode === "preview" && isEditable && incomeAccountIds.length > 1 && (
+            <div className="rounded-2xl p-4 mb-5" data-wizard-target="wizard-payday-source-account" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+              <div className="flex items-center mb-2">
+                <span className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Move budgeted &amp; planned money from</span>
+                <InfoBubble text="Your income this payday lands in more than one account. Budget set-asides and planned-expense contributions below all transfer from whichever account you pick here - pick the one your paycheck actually lands in, not just any account with income." />
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedSourceAccountId || ""}
+                  onChange={(e) => setSelectedSourceAccountId(e.target.value)}
+                  className="w-full appearance-none rounded-lg px-3 py-2.5 text-sm focus:outline-none"
+                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
+                >
+                  {incomeAccountIds.map((id) => <option key={id} value={id}>{accountsById[id] || "Unknown account"}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
+            </div>
           )}
 
           {data.mode === "preview" && (
