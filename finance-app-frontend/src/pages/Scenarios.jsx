@@ -51,6 +51,10 @@ function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function ScenariosPage() {
   const { theme } = useTheme();
   const [savedScenarios, setSavedScenarios] = useState(null);
@@ -258,18 +262,20 @@ export default function ScenariosPage() {
               {a.recurringId && (
                 <>
                   <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
-                  <input
-                    type="date"
-                    value={a.startDate || ""}
-                    onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
-                    className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-                  />
+                  <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                    <input
+                      type="date"
+                      value={a.startDate || ""}
+                      onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
+                      className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                      style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
                 </>
               )}
             </div>
           ))}
-          <button onClick={() => setIncomeAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an income</button>
+          <button onClick={() => setIncomeAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: todayISO() }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an income</button>
 
           <div className="flex items-center mb-2">
             <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New recurring income</p>
@@ -282,16 +288,18 @@ export default function ScenariosPage() {
                 <input type="number" value={i.monthlyAmount} onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, monthlyAmount: e.target.value } : x))} placeholder="$/mo" style={{ width: 80, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
               <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
-              <input
-                type="date"
-                value={i.startDate || ""}
-                onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, startDate: e.target.value } : x))}
-                className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-              />
+              <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                <input
+                  type="date"
+                  value={i.startDate || ""}
+                  onChange={(e) => setNewIncome((r) => r.map((x) => x.id === i.id ? { ...x, startDate: e.target.value } : x))}
+                  className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                />
+              </div>
             </div>
           ))}
-          <button onClick={() => setNewIncome((r) => [...r, { id: uid(), description: "", monthlyAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical income</button>
+          <button onClick={() => setNewIncome((r) => [...r, { id: uid(), description: "", monthlyAmount: "", startDate: todayISO() }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical income</button>
 
           <div className="flex items-center mb-2">
             <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing expense</p>
@@ -317,18 +325,20 @@ export default function ScenariosPage() {
               {a.recurringId && (
                 <>
                   <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
-                  <input
-                    type="date"
-                    value={a.startDate || ""}
-                    onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
-                    className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-                  />
+                  <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                    <input
+                      type="date"
+                      value={a.startDate || ""}
+                      onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, startDate: e.target.value } : x))}
+                      className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                      style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                    />
+                  </div>
                 </>
               )}
             </div>
           ))}
-          <button onClick={() => setExpenseAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an expense</button>
+          <button onClick={() => setExpenseAdjustments((r) => [...r, { id: uid(), recurringId: "", newAmount: "", startDate: todayISO() }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Adjust an expense</button>
 
           <div className="flex items-center mb-2">
             <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>New recurring expense</p>
@@ -341,16 +351,18 @@ export default function ScenariosPage() {
                 <input type="number" value={e.monthlyAmount} onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, monthlyAmount: ev.target.value } : x))} placeholder="$/mo" style={{ width: 80, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
               </AdjustmentRow>
               <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
-              <input
-                type="date"
-                value={e.startDate || ""}
-                onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, startDate: ev.target.value } : x))}
-                className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
-                style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
-              />
+              <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                <input
+                  type="date"
+                  value={e.startDate || ""}
+                  onChange={(ev) => setNewExpenses((r) => r.map((x) => x.id === e.id ? { ...x, startDate: ev.target.value } : x))}
+                  className="w-full rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }}
+                />
+              </div>
             </div>
           ))}
-          <button onClick={() => setNewExpenses((r) => [...r, { id: uid(), description: "", category: "", monthlyAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical expense</button>
+          <button onClick={() => setNewExpenses((r) => [...r, { id: uid(), description: "", category: "", monthlyAmount: "", startDate: todayISO() }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical expense</button>
 
           <div className="flex items-center mb-2" data-wizard-target="wizard-scenarios-onetime">
             <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>One-time expense</p>
@@ -395,16 +407,18 @@ export default function ScenariosPage() {
         </SectionHeader>
         <div className="rounded-2xl p-4 mb-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <div className="flex gap-2 mb-3">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Target amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: colors.textMuted, fontFamily: fontMono }}>$</span>
                 <input type="number" inputMode="decimal" value={goalTarget} onChange={(e) => setGoalTarget(e.target.value)} placeholder="0.00" className="w-full rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} />
               </div>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>By when</label>
-              <input type="date" value={goalDate} onChange={(e) => setGoalDate(e.target.value)} className="w-full rounded-lg px-2.5 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }} />
+              <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                <input type="date" value={goalDate} onChange={(e) => setGoalDate(e.target.value)} className="w-full rounded-lg px-2.5 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, colorScheme: theme, maxWidth: "100%", boxSizing: "border-box" }} />
+              </div>
             </div>
           </div>
           <div className="flex gap-2 mb-4">
