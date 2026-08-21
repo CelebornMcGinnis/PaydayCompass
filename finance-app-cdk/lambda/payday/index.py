@@ -53,6 +53,7 @@ from finance_common.transfers import execute_transfer
 from finance_common.divisions import adjust_division_balance
 from finance_common.planned_expenses import suggested_contribution as _suggested_contribution, complete_planned_expense, is_funded
 from finance_common.payday_periods import previous_real_payday as _previous_real_payday
+from finance_common.low_balance_projection import project_lowest_balance
 ses_client = boto3.client("ses")
 SES_FROM_ADDRESS = os.environ.get("SES_FROM_ADDRESS", "alerts@example.com")
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
@@ -280,17 +281,37 @@ def _get_upcoming(user_id, query_params):
         date_overrides = item.get("occurrenceDateOverrides") or {}
         return date_overrides.get(item["nextDueDate"], item["nextDueDate"])
 
-    # Resolve names across every owner whose expenses appear here - a
-    # shared expense's externalBankAccountId refers to an entry in the
-    # SHARER's own external-accounts list, not the caller's, so looking it
-    # up against only the caller's list would always come back empty for
-    # shared items.
-    owner_ids = {user_id} | {i["sharedFromUserId"] for i in due_expenses if i.get("sharedFromUserId")}
+    # Resolve names/balances across every owner whose income or expenses
+    # appear here - a shared expense's externalBankAccountId refers to an
+    # entry in the SHARER's own external-accounts list, not the caller's,
+    # so looking it up against only the caller's list would always come
+    # back empty for shared items.
+    owner_ids = {user_id} | {i["sharedFromUserId"] for i in active_items if i.get("sharedFromUserId")}
     external_account_names = _get_external_account_names_for_owners(owner_ids)
+    owner_accounts = [
+        a
+        for owner in owner_ids
+        for a in accounts_table.query(
+            KeyConditionExpression="userId = :uid",
+            ExpressionAttributeValues={":uid": owner},
+        ).get("Items", [])
+    ]
+    account_name_map = {a["accountId"]: a["name"] for a in owner_accounts}
 
     # Budgeted expenses and planned-expense contributions were already
     # computed above (before the history check), so both branches get
     # them - nothing further needed here.
+
+    expense_items = [i for i in active_items if not i.get("isIncome")]
+    lowest_projected_balance = project_lowest_balance(
+        income_items,
+        expense_items,
+        active_budgets,
+        planned_items,
+        overdue_planned_expenses,
+        {a["accountId"]: float(a["balance"]) for a in owner_accounts},
+        today,
+    )
 
     return _response(
         200,
@@ -329,16 +350,10 @@ def _get_upcoming(user_id, query_params):
             "budgetedExpenses": budgeted_expenses,
             "plannedExpenseContributions": planned_expense_contributions,
             "overduePlannedExpenses": overdue_planned_expenses,
+            "lowestProjectedBalance": lowest_projected_balance,
             "aggregateByExternalBankAccount": _aggregate_by_external_account(
                 due_expenses, external_account_names, _current_estimate, user_id,
-                {
-                    a["accountId"]: a["name"]
-                    for owner in owner_ids
-                    for a in accounts_table.query(
-                        KeyConditionExpression="userId = :uid",
-                        ExpressionAttributeValues={":uid": owner},
-                    ).get("Items", [])
-                },
+                account_name_map,
                 budgeted_expenses=budgeted_expenses,
                 planned_items=planned_expense_contributions + overdue_planned_expenses,
             ),

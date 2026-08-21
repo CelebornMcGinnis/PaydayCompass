@@ -290,20 +290,12 @@ export default function AccountDetailPage() {
   const canModifyTransactions = account && (!account.sharedFromUserId || account.sharedDataPermissions?.modifyTransactions === "edit");
   const divisionsTotal = (divisions || []).reduce((sum, d) => sum + d.balance, 0);
 
-  const dueFromThisAccount = useMemo(() => {
-    if (!paydayData || paydayData.mode !== "preview") return 0;
-    let total = 0;
-    for (const e of paydayData.upcomingExpenses || []) {
-      if (e.accountId === accountId) total += e.estimatedAmount;
-    }
-    for (const b of paydayData.budgetedExpenses || []) {
-      if (b.accountId === accountId) total += b.amount;
-    }
-    for (const pe of [...(paydayData.plannedExpenseContributions || []), ...(paydayData.overduePlannedExpenses || [])]) {
-      if (pe.linkedAccountId === accountId) total += pe.amount;
-    }
-    return total;
-  }, [paydayData, accountId]);
+  // The lowest balance this account is projected to hit before every
+  // income source has completed at least one full cycle - computed
+  // server-side (finance_common.low_balance_projection), same field
+  // Dashboard's account cards use.
+  const lowestBalance = paydayData?.mode === "preview" ? paydayData.lowestProjectedBalance?.[accountId]?.amount : undefined;
+  const showLowestBalance = account && lowestBalance !== undefined && Math.abs(lowestBalance - account.balance) > 0.005;
 
   return (
     <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>
@@ -443,8 +435,8 @@ export default function AccountDetailPage() {
               {divisions && divisions.length > 0 && (
                 <p style={{ fontFamily: fontMono, fontSize: 14, color: colors.textMuted }}>({formatMoney(account.balance - divisionsTotal)} unassigned)</p>
               )}
-              {dueFromThisAccount > 0.005 && (
-                <p style={{ fontFamily: fontMono, fontSize: 14, color: colors.textMuted }}>({formatMoney(account.balance - dueFromThisAccount)} available after upcoming payments)</p>
+              {showLowestBalance && (
+                <p style={{ fontFamily: fontMono, fontSize: 14, color: lowestBalance < 0 ? colors.alert : colors.textMuted }}>({formatMoney(lowestBalance)} available after upcoming payments)</p>
               )}
             </div>
           </div>

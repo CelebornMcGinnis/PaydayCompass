@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus } from "lucide-react";
 import { accountsApi, sharingApi, peerNotificationsApi, divisionsApi, paydayApi, preferencesApi, externalBankAccountsApi, ApiError } from "../lib/apiClient";
@@ -69,7 +69,7 @@ function AccountCard({ account, divisions, expanded, onToggleExpand, onClick, av
               <ChevronRight size={16} style={{ color: colors.textMuted }} />
             </div>
             {showAvailable && (
-              <span className="text-xs" style={{ fontFamily: fontMono, color: colors.textMuted }}>({formatMoney(availableBalance)} available)</span>
+              <span className="text-xs" style={{ fontFamily: fontMono, color: availableBalance < 0 ? colors.alert : colors.textMuted }}>({formatMoney(availableBalance)} available)</span>
             )}
           </div>
         </div>
@@ -288,20 +288,11 @@ export default function DashboardPage() {
   const ownedAccountsSorted = (accounts || [])
     .filter((a) => !a.sharedFromUserId)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const dueByAccount = useMemo(() => {
-    if (!paydayData || paydayData.mode !== "preview") return {};
-    const totals = {};
-    for (const e of paydayData.upcomingExpenses || []) {
-      totals[e.accountId] = (totals[e.accountId] || 0) + e.estimatedAmount;
-    }
-    for (const b of paydayData.budgetedExpenses || []) {
-      if (b.accountId) totals[b.accountId] = (totals[b.accountId] || 0) + b.amount;
-    }
-    for (const pe of [...(paydayData.plannedExpenseContributions || []), ...(paydayData.overduePlannedExpenses || [])]) {
-      if (pe.linkedAccountId) totals[pe.linkedAccountId] = (totals[pe.linkedAccountId] || 0) + pe.amount;
-    }
-    return totals;
-  }, [paydayData]);
+  // The lowest balance each account is projected to hit before every
+  // income source has completed at least one full cycle - computed
+  // server-side (finance_common.low_balance_projection) since it needs
+  // the same recurrence/budget-proration math the backend already owns.
+  const lowestBalanceByAccount = paydayData?.mode === "preview" ? paydayData.lowestProjectedBalance || {} : {};
 
   const checkingAccounts = ownedAccountsSorted.filter((a) => a.type === "checking");
   const savingsAccounts = ownedAccountsSorted.filter((a) => a.type === "savings");
@@ -618,7 +609,7 @@ export default function DashboardPage() {
                         expanded={expandedAccountId === a.accountId}
                         onToggleExpand={() => setExpandedAccountId((id) => (id === a.accountId ? null : a.accountId))}
                         onClick={() => { if (!reorderMode) navigate(`/accounts/${a.accountId}`); }}
-                        availableBalance={dueByAccount[a.accountId] !== undefined ? a.balance - dueByAccount[a.accountId] : undefined}
+                        availableBalance={lowestBalanceByAccount[a.accountId]?.amount}
                         linkedExternalName={a.externalBankAccountId ? externalAccountsById[a.externalBankAccountId] : null}
                       />
                     </div>
@@ -636,7 +627,7 @@ export default function DashboardPage() {
               <InfoBubble text="Accounts someone else owns and has shared with you - not counted in your net worth above." />
             </div>
             {sharedAccounts.map((a) => (
-              <AccountCard key={a.accountId} account={a} onClick={() => navigate(`/accounts/${a.accountId}`)} availableBalance={dueByAccount[a.accountId] !== undefined ? a.balance - dueByAccount[a.accountId] : undefined} />
+              <AccountCard key={a.accountId} account={a} onClick={() => navigate(`/accounts/${a.accountId}`)} availableBalance={lowestBalanceByAccount[a.accountId]?.amount} />
             ))}
           </>
         )}
