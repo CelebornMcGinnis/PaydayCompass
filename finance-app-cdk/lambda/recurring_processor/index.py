@@ -33,6 +33,10 @@ import boto3
 from finance_common.schedule import next_date_after
 from finance_common.cognito_lookup import lookup_email_by_sub
 from finance_common.recurring_posting import post_occurrence, advance_schedule
+from finance_common.payday_periods import previous_real_payday
+from finance_common.payday_sweep import sweep_budgets_and_planned_expenses
+from finance_common.payday_history import save_payday_history, get_payday_history
+from finance_common.payday_review_notify import notify_payday_posted
 
 dynamodb = boto3.resource("dynamodb")
 recurring_table = dynamodb.Table(os.environ["RECURRING_TABLE"])
@@ -55,6 +59,8 @@ def handler(event, context):
             for occurrence_date in occurrence_dates:
                 post_occurrence(template, occurrence_date, source="recurring")
                 processed += 1
+                if template.get("isIncome"):
+                    _sweep_budgets_and_planned_expenses_for_payday(template, occurrence_date)
 
             next_due = next_date_after(template, occurrence_dates[-1])
             advance_schedule(template, next_due, occurrence_dates)
@@ -99,6 +105,44 @@ def _notify_user_of_processing_failure(template):
         )
     except Exception:
         pass
+
+
+def _sweep_budgets_and_planned_expenses_for_payday(income_template, payday_date):
+    """An income occurrence posting IS a real payday for this user - budgets
+    and planned expenses have no due-date field of their own (unlike
+    recurring items, see payday_sweep's module docstring), so this is the
+    only signal that triggers their auto-sweep. Every real payday gets its
+    own slice, sourced from THAT income's own account - a household with
+    two income sources due on different days sees two independent,
+    smaller sweeps rather than one lump sum, which is more accurate to
+    when the money actually lands.
+
+    Guarded by payday_history_table already having a record for this
+    (user, date) - either a manual early-submit already covered it, or
+    another income source due the same calendar date already triggered
+    the sweep first. Either way, one sweep per real distinct payday date
+    per user, not one per income source that happens to share it (their
+    windows would be identical, so a second sweep would double-post)."""
+    user_id = income_template["userId"]
+    if get_payday_history(user_id, payday_date):
+        return
+
+    income_items = [
+        i for i in recurring_table.query(
+            IndexName="byUserAndNextDue",
+            KeyConditionExpression="userId = :uid",
+            ExpressionAttributeValues={":uid": user_id},
+        ).get("Items", [])
+        if i.get("activeFlag") == "true" and i.get("isIncome")
+    ]
+    previous_payday = previous_real_payday(income_items, payday_date)
+
+    transfers, errors = sweep_budgets_and_planned_expenses(
+        user_id, income_template["accountId"], previous_payday, payday_date,
+    )
+    if transfers or errors:
+        save_payday_history(user_id, payday_date, [], transfers, errors, reviewed=False)
+        notify_payday_posted(user_id, payday_date, transfers)
 
 
 def _get_due_templates(today):

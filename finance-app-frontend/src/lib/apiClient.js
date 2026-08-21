@@ -172,7 +172,7 @@ export const paydayApi = {
   upcoming: (date) => api.get(date ? `/payday/upcoming?date=${date}` : "/payday/upcoming"),
   submit: (body) => api.post("/payday/submit", body),
   history: () => api.get("/payday/history"),
-  reverse: (paydayDate) => api.post("/payday/reverse", { paydayDate }),
+  update: (body) => api.post("/payday/update", body),
 };
 
 export const externalBankAccountsApi = {

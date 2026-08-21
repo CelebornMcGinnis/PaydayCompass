@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus } from "lucide-react";
+import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus, GraduationCap } from "lucide-react";
 import { accountsApi, sharingApi, peerNotificationsApi, divisionsApi, paydayApi, preferencesApi, externalBankAccountsApi, ApiError } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useAuth } from "../lib/authContext";
@@ -118,6 +118,7 @@ export default function DashboardPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
+  const [hasUnreviewedPayday, setHasUnreviewedPayday] = useState(false);
   const [externalAccountsById, setExternalAccountsById] = useState({});
   const [quickActionIds, setQuickActionIds] = useState(null); // null until loaded (either from preferences or the built-in default)
   const [customizedActions, setCustomizedActions] = useState(false);
@@ -219,6 +220,10 @@ export default function DashboardPage() {
       // Only a currently-active notification should light the dot - see
       // PageHeader.jsx's identical check for why raw list length is wrong.
       .then((d) => setHasNotifications((d.notifications || []).some((n) => n.isExpanded)))
+      .catch(() => {});
+    paydayApi
+      .history()
+      .then((d) => setHasUnreviewedPayday((d.history || []).some((h) => h.reviewed === false)))
       .catch(() => {});
     externalBankAccountsApi
       .list()
@@ -396,13 +401,16 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={() => setShowWalkthrough(true)} aria-label="Replay app tour" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
+            <GraduationCap size={18} />
+          </button>
           <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <div className="relative" ref={menuContainerRef}>
           <button ref={menuButtonRef} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
-            {(hasPendingShares || hasNotifications) && !menuOpen && (
+            {(hasPendingShares || hasNotifications || hasUnreviewedPayday) && !menuOpen && (
               <span className="absolute rounded-full" style={{ width: 8, height: 8, top: -1, right: -1, background: colors.alert, border: `1.5px solid ${colors.bg}` }} />
             )}
           </button>
@@ -414,7 +422,7 @@ export default function DashboardPage() {
                   <p className="px-3 pt-1.5 pb-0.5 text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.06em" }}>{section.label}</p>
                   {section.links.map((link) => {
                     const Icon = link.icon;
-                    const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications);
+                    const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications) || (link.to === "/payday" && hasUnreviewedPayday);
                     return (
                       <button
                         key={link.to}

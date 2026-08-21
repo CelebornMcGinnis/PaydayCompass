@@ -266,6 +266,8 @@ export class Lambdas extends Construct {
     tables.transactionsTable.grantReadWriteData(this.recurringProcessorFn);
     tables.accountsTable.grantReadWriteData(this.recurringProcessorFn);
     tables.budgetsTable.grantReadData(this.recurringProcessorFn);
+    tables.plannedExpensesTable.grantReadWriteData(this.recurringProcessorFn); // auto-sweep contributions on a real payday, see payday_sweep
+    tables.paydayHistoryTable.grantReadWriteData(this.recurringProcessorFn); // dedupe guard + record for Payday Review's "needs review" badge
     tables.divisionsTable.grantReadWriteData(this.recurringProcessorFn); // adjust a division's own balance when a division-tagged item posts
     this.notificationsFn.grantInvoke(this.recurringProcessorFn);
     this.recurringProcessorFn.addToRolePolicy(cognitoListUsersPolicy(props.userPool.userPoolArn));
@@ -318,7 +320,7 @@ export class Lambdas extends Construct {
     tables.peerNotificationsTable.grantWriteData(this.paydayFn);
     tables.paydayHistoryTable.grantReadWriteData(this.paydayFn);
     tables.budgetsTable.grantReadData(this.paydayFn); // budgeted-expense reminders now shown on Payday
-    tables.plannedExpensesTable.grantReadData(this.paydayFn); // planned-expense contributions folded into "unpredicted" per the user's own definition
+    tables.plannedExpensesTable.grantReadWriteData(this.paydayFn); // planned-expense contributions folded into "unpredicted" per the user's own definition, and Update corrects amountSaved
     tables.divisionsTable.grantReadWriteData(this.paydayFn); // adjust a division's own balance when a division-tagged item posts during submit
     tables.userPreferencesTable.grantReadData(this.paydayFn); // low-balance alert preference check inside execute_transfer
     this.paydayFn.addToRolePolicy(cognitoListUsersPolicy(props.userPool.userPoolArn)); // resolve recipient/sender emails for the notification email

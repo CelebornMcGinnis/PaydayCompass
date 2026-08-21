@@ -206,11 +206,16 @@ export default function PaydayPage() {
     }
   }, [updatedBalances]);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
-  const [confirmingReverse, setConfirmingReverse] = useState(false);
   const [confirmNavigate, setConfirmNavigate] = useState(null); // { label, url } | null
-  const [reversing, setReversing] = useState(false);
-  const [reverseError, setReverseError] = useState(null);
   const [error, setError] = useState(null);
+
+  // What actually posted for a past payday (seeded from data.transfers,
+  // not the freshly-recomputed budgetedExpenses/plannedExpenseContributions
+  // above, which can have since drifted) - edited here, then Update
+  // pushes just the difference out as a real correction.
+  const [transferAmounts, setTransferAmounts] = useState({});
+  const [updatingPayday, setUpdatingPayday] = useState(false);
+  const [updateError, setUpdateError] = useState(null);
 
   const [divisionsByAccount, setDivisionsByAccount] = useState({});
 
@@ -247,6 +252,11 @@ export default function PaydayPage() {
         // implicit behavior - but stays user-adjustable via the selector
         // below when income this payday spans more than one account.
         setSelectedSourceAccountId(d.income[0]?.accountId || null);
+      }
+      if (d.mode === "history") {
+        setTransferAmounts(Object.fromEntries(
+          (d.transfers || []).map((t) => [t.category || t.plannedExpenseId, t.amount])
+        ));
       }
       return d;
     });
@@ -329,18 +339,30 @@ export default function PaydayPage() {
     setRecipientMessages((m) => ({ ...m, [userId]: { ...m[userId], [field]: value } }));
   }
 
-  async function reversePayday() {
+  const hasTransferChanges = (data?.transfers || []).some((t) => {
+    const key = t.category || t.plannedExpenseId;
+    return transferAmounts[key] !== undefined && transferAmounts[key] !== t.amount;
+  });
+
+  async function handleUpdatePayday() {
     if (!data?.paydayDate) return;
-    setReversing(true);
-    setReverseError(null);
+    setUpdatingPayday(true);
+    setUpdateError(null);
     try {
-      await paydayApi.reverse(data.paydayDate);
-      setConfirmingReverse(false);
-      refreshPayday();
+      await paydayApi.update({
+        paydayDate: data.paydayDate,
+        budgetAdjustments: (data.transfers || [])
+          .filter((t) => t.category && transferAmounts[t.category] !== undefined && transferAmounts[t.category] !== t.amount)
+          .map((t) => ({ category: t.category, amount: transferAmounts[t.category] })),
+        plannedExpenseAdjustments: (data.transfers || [])
+          .filter((t) => t.plannedExpenseId && transferAmounts[t.plannedExpenseId] !== undefined && transferAmounts[t.plannedExpenseId] !== t.amount)
+          .map((t) => ({ plannedExpenseId: t.plannedExpenseId, amount: transferAmounts[t.plannedExpenseId] })),
+      });
+      await refreshPayday();
     } catch (err) {
-      setReverseError(err.message || "Couldn't reverse that payday.");
+      setUpdateError(err.message || "Couldn't push that correction.");
     } finally {
-      setReversing(false);
+      setUpdatingPayday(false);
     }
   }
 
@@ -407,7 +429,7 @@ export default function PaydayPage() {
   return (
     <div className="min-h-screen pb-28" style={{ background: colors.bg, fontFamily: fontBody }}>
       <PageHeader
-        title="Payday calculator"
+        title="Payday Review"
         subtitle={data && data.mode !== "noIncome" ? (data.mode === "history" ? `submitted ${data.paydayDate}` : `due ${data.nextPayday}`) : undefined}
         wizardBlocked={data?.mode === "noIncome" ? {
           message: "Payday works off your income schedule - you'll need at least one income source set up before there's anything real to walk through here.",
@@ -424,8 +446,8 @@ export default function PaydayPage() {
               Add your income to unlock this
             </p>
             <p className="text-sm mb-5" style={{ color: colors.textMuted }}>
-              The payday calculator works out real pay periods from your income schedule - without at least one
-              income source set up, there's no real period to calculate against, so this stays off rather than
+              Payday Review works out real pay periods from your income schedule - without at least one
+              income source set up, there's no real period to work from, so this stays off rather than
               show you numbers that would just be wrong.
             </p>
             <button
@@ -440,7 +462,7 @@ export default function PaydayPage() {
         </div>
       ) : (
         <div className="px-5 pt-6 max-w-md mx-auto">
-          <PageBlurb>Everything due before your next paycheck, adjustable, submitted as one batch.</PageBlurb>
+          <PageBlurb>Budgets and planned expenses set themselves aside on your real payday - review what moved here, and correct it if something was off.</PageBlurb>
           <div data-wizard-target="wizard-payday-selector">
             <PaydaySelector viewDate={viewDate} onSelectDate={setViewDate} onReset={() => setViewDate(null)} />
           </div>
@@ -483,35 +505,70 @@ export default function PaydayPage() {
 
           {data.mode === "history" && (
             <div className="mb-5">
-              {data.reversed ? (
-                <p className="text-sm px-1" style={{ color: colors.textMuted }}>This payday's money movement was reversed.</p>
-              ) : reverseError ? (
-                <p className="text-sm mb-2 px-1" style={{ color: colors.alert }}>{reverseError}</p>
-              ) : null}
-              {!data.reversed && !confirmingReverse && (
+              <div className="flex items-center mb-2 px-1">
+                <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>What got set aside</h3>
+                <InfoBubble text="Budgeted categories and planned expenses that auto-posted (or were submitted early) for this payday. Edit an amount and Update pushes just the difference out as a correction - the original transfer stays on record as it happened." />
+              </div>
+              {(data.transfers || []).length === 0 ? (
+                <p className="text-sm px-1" style={{ color: colors.textMuted }}>Nothing was set aside for this payday.</p>
+              ) : (
+                <div className="rounded-2xl px-4 mb-3" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+                  {data.transfers.map((t, i) => {
+                    const key = t.category || t.plannedExpenseId;
+                    const rowKey = `transfer-${key}`;
+                    const isEditingTransfer = editingKey === rowKey;
+                    const currentAmount = transferAmounts[key] ?? t.amount;
+                    return (
+                      <div key={rowKey} style={{ borderBottom: i < data.transfers.length - 1 ? `1px solid ${colors.border}` : "none" }}>
+                        <div className="flex items-center justify-between py-2.5">
+                          <div
+                            style={{ cursor: "pointer" }}
+                            onClick={() => setConfirmNavigate(t.category
+                              ? { label: t.category, url: `/budgets?category=${encodeURIComponent(t.category)}` }
+                              : { label: t.name, url: `/planned-expenses?edit=${t.plannedExpenseId}` })}
+                          >
+                            <span className="text-sm" style={{ color: colors.text }}>{t.category || t.name}</span>
+                          </div>
+                          <span
+                            className="flex items-center gap-1.5 shrink-0 pl-2 transition-opacity hover:opacity-80"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => setEditingKey(isEditingTransfer ? null : rowKey)}
+                          >
+                            <span style={{ fontFamily: fontMono, fontSize: 14, color: colors.text }}>{formatMoney(currentAmount)}</span>
+                            <Pencil size={13} style={{ color: colors.textMuted }} />
+                          </span>
+                        </div>
+                        {isEditingTransfer && (
+                          <div className="pb-3">
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={currentAmount}
+                                onChange={(e) => setTransferAmounts((a) => ({ ...a, [key]: parseFloat(e.target.value) || 0 }))}
+                                className="flex-1 rounded-lg px-2.5 py-2 text-sm focus:outline-none"
+                                style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }}
+                              />
+                              <button type="button" onClick={() => setEditingKey(null)} className="rounded-lg px-3 text-xs font-medium" style={{ background: colors.accent, color: colors.bg }}>Done</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {updateError && <p className="text-sm mb-2 px-1" style={{ color: colors.alert }}>{updateError}</p>}
+              {hasTransferChanges && (
                 <button
                   type="button"
-                  onClick={() => setConfirmingReverse(true)}
-                  className="text-sm underline"
-                  style={{ color: colors.alert }}
+                  onClick={handleUpdatePayday}
+                  disabled={updatingPayday}
+                  className="w-full rounded-lg py-2.5 text-sm font-medium"
+                  style={{ background: colors.accent, color: colors.bg, opacity: updatingPayday ? 0.6 : 1 }}
                 >
-                  Reverse this payday's money movement
+                  {updatingPayday ? "Updating…" : "Update"}
                 </button>
-              )}
-              {!data.reversed && confirmingReverse && (
-                <div className="rounded-2xl p-4" style={{ background: colors.surface, border: `1px solid ${colors.alert}` }}>
-                  <p className="text-sm mb-1" style={{ color: colors.text }}>Undo this payday?</p>
-                  <p className="text-xs mb-3" style={{ color: colors.textMuted }}>
-                    Deletes every transaction this submission created and puts every balance back exactly where it
-                    was, including any recurring items it advanced. This can't be undone.
-                  </p>
-                  <div className="flex gap-2">
-                    <button onClick={() => setConfirmingReverse(false)} className="flex-1 rounded-lg py-2 text-xs font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>
-                    <button onClick={reversePayday} disabled={reversing} className="flex-1 rounded-lg py-2 text-xs font-medium" style={{ background: colors.alert, color: colors.bg, opacity: reversing ? 0.6 : 1 }}>
-                      {reversing ? "Reversing…" : "Reverse it"}
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
           )}
@@ -1000,8 +1057,8 @@ export default function PaydayPage() {
           {confirmingSubmit && !submitted ? (
             <div className="rounded-xl p-3 mb-2" style={{ background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}` }}>
               <p className="text-xs mb-2" style={{ color: colors.textMuted }}>
-                This moves real money between your accounts and can't be submitted again for this payday without
-                reversing it first. Sure this is right?
+                This moves real money between your accounts and can't be submitted again for this payday. Sure
+                this is right?
               </p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setConfirmingSubmit(false)} className="flex-1 rounded-lg py-2 text-xs font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>
@@ -1026,7 +1083,7 @@ export default function PaydayPage() {
       </div>
       )}
 
-      {data?.mode === "history" && !viewDate && !data.reversed && (
+      {data?.mode === "history" && !viewDate && (
         <div className="fixed bottom-0 left-0 right-0 px-5 py-4 z-30" style={{ background: colors.surface, borderTop: `1px solid ${colors.border}` }}>
           <div className="max-w-md mx-auto flex items-center gap-1.5">
             <button
@@ -1035,9 +1092,9 @@ export default function PaydayPage() {
               className="flex-1 rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2"
               style={{ background: colors.border, color: colors.textMuted }}
             >
-              <Check size={16} /> Already submitted
+              <Check size={16} /> Already posted
             </button>
-            <InfoBubble text="This payday's money movement was already submitted and can't be submitted again - reverse it first (below) if you need to redo it, or if this was submitted by accident." />
+            <InfoBubble text="This payday's budgeted/planned money already moved - edit an amount above and hit Update if something needs correcting." />
           </div>
         </div>
       )}
@@ -1047,7 +1104,7 @@ export default function PaydayPage() {
           <div className="w-full max-w-sm rounded-2xl p-5" style={{ background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}` }} onClick={(e) => e.stopPropagation()}>
             <p style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 16, fontWeight: 600 }} className="mb-1.5">Go to "{confirmNavigate.label}"?</p>
             <p className="text-sm mb-4" style={{ color: colors.textMuted }}>
-              This leaves the payday calculator - anything you haven't submitted yet on this page stays as you left it.
+              This leaves Payday Review - anything you haven't submitted yet on this page stays as you left it.
             </p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmNavigate(null)} className="flex-1 rounded-lg py-2 text-sm font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.textMuted }}>Cancel</button>

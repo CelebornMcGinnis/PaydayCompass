@@ -6,7 +6,7 @@ import { getWizardForPath } from "../lib/wizards";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
 import { useAuth } from "../lib/authContext";
 import { useTheme } from "../lib/ThemeContext";
-import { sharingApi, peerNotificationsApi } from "../lib/apiClient";
+import { sharingApi, peerNotificationsApi, paydayApi } from "../lib/apiClient";
 import { useIsDesktop } from "../lib/useIsDesktop";
 import { useHeaderScrollShrink } from "../lib/useHeaderScrollShrink";
 import WizardMenu from "./WizardMenu";
@@ -37,6 +37,7 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
+  const [hasUnreviewedPayday, setHasUnreviewedPayday] = useState(false);
   const menuRef = useRef(null);
 
   const wizard = getWizardForPath(location.pathname);
@@ -98,6 +99,15 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
       // of what the user actually deletes.
       .then((d) => setHasNotifications((d.notifications || []).some((n) => n.isExpanded)))
       .catch(() => {});
+    // A payday-history record only exists once budgets/planned expenses
+    // have actually auto-swept (or been submitted early) for that date -
+    // "unreviewed" means the user hasn't yet browsed to it in Payday
+    // Review (see payday/index.py's mark_reviewed, fired on an explicit
+    // ?date= fetch).
+    paydayApi
+      .history()
+      .then((d) => setHasUnreviewedPayday((d.history || []).some((h) => h.reviewed === false)))
+      .catch(() => {});
   }, [signedIn]);
 
   useEffect(() => {
@@ -125,7 +135,7 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
             <div className="relative" ref={menuRef}>
               <button onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
                 {menuOpen ? <X size={22} /> : <Menu size={22} />}
-                {(hasPendingShares || hasNotifications) && !menuOpen && (
+                {(hasPendingShares || hasNotifications || hasUnreviewedPayday) && !menuOpen && (
                   <span className="absolute rounded-full" style={{ width: 8, height: 8, top: -1, right: -1, background: colors.alert, border: `1.5px solid ${colors.bg}` }} />
                 )}
               </button>
@@ -147,7 +157,7 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
                       <p className="px-3 pt-1.5 pb-0.5 text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.06em" }}>{section.label}</p>
                       {section.links.map((link) => {
                         const Icon = link.icon;
-                        const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications);
+                        const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications) || (link.to === "/payday" && hasUnreviewedPayday);
                         return (
                           <button
                             key={link.to}
@@ -219,7 +229,7 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
         <div className="relative" ref={menuRef}>
           <button onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
-            {(hasPendingShares || hasNotifications) && !menuOpen && (
+            {(hasPendingShares || hasNotifications || hasUnreviewedPayday) && !menuOpen && (
               <span className="absolute rounded-full" style={{ width: 8, height: 8, top: -1, right: -1, background: colors.alert, border: `1.5px solid ${colors.bg}` }} />
             )}
           </button>
@@ -241,7 +251,7 @@ export default function PageHeader({ title, subtitle, onBack, wizardBlocked }) {
                 <p className="px-3 pt-1.5 pb-0.5 text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.06em" }}>{section.label}</p>
                 {section.links.map((link) => {
                   const Icon = link.icon;
-                  const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications);
+                  const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications) || (link.to === "/payday" && hasUnreviewedPayday);
                   return (
                     <button
                       key={link.to}

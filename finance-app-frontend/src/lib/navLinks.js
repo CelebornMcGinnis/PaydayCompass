@@ -4,7 +4,7 @@ export const NAV_SECTIONS = [
   {
     label: "Money movement",
     links: [
-      { to: "/payday", label: "Payday calculator", icon: Calendar, description: "Everything due before your next paycheck, adjustable, submitted as one batch." },
+      { to: "/payday", label: "Payday Review", icon: Calendar, description: "Budgets and planned expenses set themselves aside automatically - review what moved, correct it, or submit early." },
       { to: "/add-multiple", label: "Add multiple", icon: ListPlus, description: "Enter several transactions or recurring items at once, across any of your accounts." },
       { to: "/csv", label: "Import / export CSV", icon: FileSpreadsheet, description: "Download a template, fill it in, and bulk-import transactions or recurring items - or export a copy." },
       { to: "/transfer", label: "Transfer funds", icon: ArrowLeftRight, description: "Move money between two of your own accounts - posts real, linked transactions on both sides." },

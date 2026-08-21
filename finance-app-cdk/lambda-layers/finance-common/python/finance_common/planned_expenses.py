@@ -13,6 +13,54 @@ import uuid
 from datetime import date
 
 from finance_common.schedule import add_months
+from finance_common.budget_frequency import budget_amount_due_on_payday
+
+
+def classify_planned_expenses(planned_items, today, previous_payday, next_payday):
+    """Splits active planned expenses into upcoming and overdue, excluding
+    anything explicitly marked complete or that's already fully funded
+    despite its date having passed (nothing left to contribute, so it
+    shouldn't clutter Payday even without an explicit complete click).
+    Overdue items use the full remaining gap (targetAmount - amountSaved)
+    directly rather than the usual prorated-per-period contribution -
+    once the target date has passed there's no time left to spread the
+    contribution across, so the whole remaining amount is what's
+    actually still needed. Shared between payday-fn (both the live
+    preview and a manual submit) and recurring_processor's daily
+    auto-sweep, so "what's due" can't drift between the two."""
+    upcoming, overdue = [], []
+    for pe in planned_items:
+        if pe.get("completed", False):
+            continue
+        remaining = float(decimal.Decimal(str(pe["targetAmount"])) - decimal.Decimal(str(pe.get("amountSaved", 0))))
+        is_overdue = pe["targetDate"] < today
+        if is_overdue:
+            if remaining <= 0:
+                continue
+            overdue.append({
+                "plannedExpenseId": pe["plannedExpenseId"],
+                "name": pe.get("name", ""),
+                "category": pe.get("category"),
+                "amount": round(remaining, 2),
+                "targetDate": pe["targetDate"],
+                "recurrenceType": pe.get("recurrenceType", "one_time"),
+                "linkedAccountId": pe.get("linkedAccountId"),
+                "divisionId": pe.get("divisionId"),
+            })
+        else:
+            upcoming.append({
+                "plannedExpenseId": pe["plannedExpenseId"],
+                "name": pe.get("name", ""),
+                "category": pe.get("category"),
+                "amount": budget_amount_due_on_payday(
+                    {"amount": suggested_contribution(pe), "frequency": pe.get("contributionFrequency", "monthly")},
+                    previous_payday,
+                    next_payday,
+                ),
+                "linkedAccountId": pe.get("linkedAccountId"),
+                "divisionId": pe.get("divisionId"),
+            })
+    return upcoming, overdue
 
 
 def suggested_contribution(item):

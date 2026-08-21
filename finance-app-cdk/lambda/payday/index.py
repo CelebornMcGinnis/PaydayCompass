@@ -51,9 +51,11 @@ from finance_common.budget_frequency import budget_amount_due_on_payday
 from finance_common.budget_notify import get_active_budgets, category_spend_all_accounts
 from finance_common.transfers import execute_transfer
 from finance_common.divisions import adjust_division_balance
-from finance_common.planned_expenses import suggested_contribution as _suggested_contribution, complete_planned_expense, is_funded
+from finance_common.planned_expenses import classify_planned_expenses
 from finance_common.payday_periods import previous_real_payday as _previous_real_payday
 from finance_common.low_balance_projection import project_lowest_balance
+from finance_common.payday_sweep import sweep_budgets_and_planned_expenses
+from finance_common.payday_history import save_payday_history, get_payday_history, mark_reviewed
 ses_client = boto3.client("ses")
 SES_FROM_ADDRESS = os.environ.get("SES_FROM_ADDRESS", "alerts@example.com")
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
@@ -83,9 +85,8 @@ def handler(event, context):
         return _submit(user_id, json.loads(event.get("body") or "{}"))
     if resource.endswith("/history") and method == "GET":
         return _get_history(user_id)
-    if resource.endswith("/reverse") and method == "POST":
-        body = json.loads(event.get("body") or "{}")
-        return _reverse_payday(user_id, body.get("paydayDate"))
+    if resource.endswith("/update") and method == "POST":
+        return _update_payday(user_id, json.loads(event.get("body") or "{}"))
 
     return _response(405, {"error": "Method not allowed"})
 
@@ -114,51 +115,6 @@ def _relevant_occurrence(item, period_start, period_end):
     it's kept as a parameter for call-site compatibility, not used."""
     current = item["nextDueDate"]
     return current if current <= period_end else None
-
-
-def _classify_planned_expenses(planned_items, today, previous_payday, next_payday):
-    """Splits active planned expenses into upcoming and overdue, excluding
-    anything explicitly marked complete or that's already fully funded
-    despite its date having passed (nothing left to contribute, so it
-    shouldn't clutter Payday even without an explicit complete click).
-    Overdue items use the full remaining gap (targetAmount - amountSaved)
-    directly rather than the usual prorated-per-period contribution -
-    once the target date has passed there's no time left to spread the
-    contribution across, so the whole remaining amount is what's
-    actually still needed."""
-    upcoming, overdue = [], []
-    for pe in planned_items:
-        if pe.get("completed", False):
-            continue
-        remaining = float(decimal.Decimal(str(pe["targetAmount"])) - decimal.Decimal(str(pe.get("amountSaved", 0))))
-        is_overdue = pe["targetDate"] < today
-        if is_overdue:
-            if remaining <= 0:
-                continue
-            overdue.append({
-                "plannedExpenseId": pe["plannedExpenseId"],
-                "name": pe.get("name", ""),
-                "category": pe.get("category"),
-                "amount": round(remaining, 2),
-                "targetDate": pe["targetDate"],
-                "recurrenceType": pe.get("recurrenceType", "one_time"),
-                "linkedAccountId": pe.get("linkedAccountId"),
-                "divisionId": pe.get("divisionId"),
-            })
-        else:
-            upcoming.append({
-                "plannedExpenseId": pe["plannedExpenseId"],
-                "name": pe.get("name", ""),
-                "category": pe.get("category"),
-                "amount": budget_amount_due_on_payday(
-                    {"amount": _suggested_contribution(pe), "frequency": pe.get("contributionFrequency", "monthly")},
-                    previous_payday,
-                    next_payday,
-                ),
-                "linkedAccountId": pe.get("linkedAccountId"),
-                "divisionId": pe.get("divisionId"),
-            })
-    return upcoming, overdue
 
 
 def _get_upcoming(user_id, query_params):
@@ -225,7 +181,7 @@ def _get_upcoming(user_id, query_params):
         KeyConditionExpression="userId = :uid",
         ExpressionAttributeValues={":uid": user_id},
     ).get("Items", [])
-    planned_expense_contributions, overdue_planned_expenses = _classify_planned_expenses(
+    planned_expense_contributions, overdue_planned_expenses = classify_planned_expenses(
         planned_items, today, previous_payday, next_payday
     )
 
@@ -239,7 +195,11 @@ def _get_upcoming(user_id, query_params):
     history_item = payday_history_table.get_item(
         Key={"userId": user_id, "paydayDate": lookup_date}
     ).get("Item")
-    if history_item and (requested_date or not history_item.get("reversed", False)):
+    if history_item:
+        if requested_date:
+            # The user explicitly browsed to this date - that's what
+            # "reviewed" means, and is what clears the needs-review badge.
+            mark_reviewed(user_id, lookup_date)
         return _response(
             200,
             {
@@ -565,13 +525,15 @@ def _submit(user_id, body):
     # set (see Budgets' and Planned Expenses' account fields); anything
     # without one stays purely informational, same as before this
     # existed. sourceAccountId is the account the paycheck landed in -
-    # for now, whichever one the frontend sends (the first income item
-    # shown); a household with multiple paycheck accounts would need to
-    # pick per-item, which this doesn't yet support.
+    # whichever one the frontend sends. This is now also the mechanism
+    # a user can use to move this money BEFORE its real auto-post date
+    # (see recurring_processor's daily sweep, which covers the common
+    # case of not manually submitting at all) - sweep_budgets_and_
+    # planned_expenses is the exact same function that path calls.
     source_account_id = body.get("sourceAccountId")
     transfers = []
+    today = date.today().isoformat()
     if source_account_id:
-        today = date.today().isoformat()
         income_items = [
             i for i in recurring_table.query(
                 IndexName="byUserAndNextDue",
@@ -581,108 +543,14 @@ def _submit(user_id, body):
             if i.get("activeFlag") == "true" and i.get("isIncome")
         ]
         previous_payday = _previous_real_payday(income_items, today)
-
-        active_budgets = get_active_budgets(user_id, today)
         budget_overrides = {a["category"]: a["amount"] for a in body.get("budgetAdjustments", [])}
-        for b in active_budgets:
-            dest = b.get("accountId")
-            if not dest:
-                continue
-            if b["category"] in budget_overrides:
-                amount = decimal.Decimal(str(budget_overrides[b["category"]]))
-            else:
-                prorated_cap = budget_amount_due_on_payday(b, previous_payday, today)
-                spent_this_period = float(category_spend_all_accounts(user_id, b["category"], previous_payday))
-                amount = decimal.Decimal(str(round(max(prorated_cap - spent_this_period, 0), 2)))
-            if amount <= 0:
-                continue
-            try:
-                result = execute_transfer(
-                    accounts_table, transactions_table, user_id, source_account_id, dest, amount,
-                    description=f"Budget set-aside: {b['category']}",
-                )
-            except Exception as e:
-                print(f"payday: budget transfer failed for user {user_id}, category={b['category']}: {e}")
-                errors.append({"type": "budgetTransfer", "category": b["category"], "toAccountId": dest, "error": str(e)})
-                continue
-            if result:
-                transfers.append({
-                    "category": b["category"], "amount": amount, "toAccountId": dest, "transferId": result["transferId"],
-                    "_reversal": {
-                        "type": "transfer",
-                        "fromAccountId": source_account_id,
-                        "toAccountId": dest,
-                        "fromSk": result["out"]["sk"],
-                        "toSk": result["in"]["sk"],
-                        "amount": float(amount),
-                        "divisionId": b.get("divisionId"),
-                    },
-                })
-                if b.get("divisionId"):
-                    adjust_division_balance(dest, b["divisionId"], amount)
-
-        planned_items = planned_expenses_table.query(
-            KeyConditionExpression="userId = :uid",
-            ExpressionAttributeValues={":uid": user_id},
-        ).get("Items", [])
-        planned_upcoming, planned_overdue = _classify_planned_expenses(planned_items, today, previous_payday, today)
         planned_overrides = {a["plannedExpenseId"]: a["amount"] for a in body.get("plannedExpenseAdjustments", [])}
-        planned_by_id = {pe["plannedExpenseId"]: pe for pe in planned_items}
-        for pe_summary in planned_upcoming + planned_overdue:
-            pe = planned_by_id[pe_summary["plannedExpenseId"]]
-            dest = pe.get("linkedAccountId")
-            if not dest:
-                continue
-            if pe_summary["plannedExpenseId"] in planned_overrides:
-                amount = decimal.Decimal(str(planned_overrides[pe_summary["plannedExpenseId"]]))
-            else:
-                amount = decimal.Decimal(str(pe_summary["amount"]))
-            if amount <= 0:
-                continue
-            try:
-                result = execute_transfer(
-                    accounts_table, transactions_table, user_id, source_account_id, dest, amount,
-                    description=f"Planned expense: {pe.get('name', '')}",
-                )
-            except Exception as e:
-                print(f"payday: planned expense transfer failed for user {user_id}, plannedExpenseId={pe['plannedExpenseId']}: {e}")
-                errors.append({"type": "plannedTransfer", "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "error": str(e)})
-                continue
-            if result:
-                transfers.append({
-                    "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "amount": amount, "toAccountId": dest, "transferId": result["transferId"],
-                    "_reversal": {
-                        "type": "transfer",
-                        "fromAccountId": source_account_id,
-                        "toAccountId": dest,
-                        "fromSk": result["out"]["sk"],
-                        "toSk": result["in"]["sk"],
-                        "amount": float(amount),
-                        "divisionId": pe.get("divisionId"),
-                        "plannedExpenseId": pe["plannedExpenseId"],
-                    },
-                })
-                if pe.get("divisionId"):
-                    adjust_division_balance(dest, pe["divisionId"], amount)
-                # Real money actually moved toward this (already recorded
-                # in transfers above, so it's tracked/reversible even if
-                # the rest of this block fails) - reflect it in
-                # amountSaved so progress on the Planned Expenses page
-                # matches what's genuinely been set aside, not just what
-                # was originally suggested.
-                try:
-                    pe_result = planned_expenses_table.update_item(
-                        Key={"userId": user_id, "plannedExpenseId": pe["plannedExpenseId"]},
-                        UpdateExpression="ADD amountSaved :amt",
-                        ExpressionAttributeValues={":amt": amount},
-                        ReturnValues="ALL_NEW",
-                    )
-                    pe_updated = pe_result.get("Attributes", {})
-                    if not pe_updated.get("completed", False) and is_funded(pe_updated):
-                        complete_planned_expense(planned_expenses_table, user_id, pe_updated)
-                except Exception as e:
-                    print(f"payday: planned expense progress update failed for user {user_id}, plannedExpenseId={pe['plannedExpenseId']}: {e}")
-                    errors.append({"type": "plannedExpenseUpdate", "plannedExpenseId": pe["plannedExpenseId"], "name": pe.get("name", ""), "error": str(e)})
+        sweep_transfers, sweep_errors = sweep_budgets_and_planned_expenses(
+            user_id, source_account_id, previous_payday, today,
+            budget_overrides=budget_overrides, planned_expense_overrides=planned_overrides,
+        )
+        transfers.extend(sweep_transfers)
+        errors.extend(sweep_errors)
 
     # TODO: trigger budget threshold notifications per affected category,
     # same as the daily recurring processor and manual expense entry do.
@@ -691,8 +559,9 @@ def _submit(user_id, body):
     # movement above is already final by this point, so a peer
     # notification failing (a bad agreement lookup, an SES error) must
     # never risk losing the history record that makes everything above
-    # trackable and reversible.
-    _save_payday_history(user_id, posted, transfers, errors)
+    # trackable. A manual/early submit is reviewed by definition - the
+    # user just directly interacted with it.
+    save_payday_history(user_id, today, posted, transfers, errors, reviewed=True)
 
     notification_results = []
     for n in body.get("peerNotifications", []):
@@ -717,8 +586,21 @@ def _submit(user_id, body):
         if t.get("toAccountId"):
             affected_account_ids.add(t["toAccountId"])
 
+    updated_balances = _updated_balances_for(user_id, affected_account_ids)
+
+    return _response(
+        201,
+        {"posted": posted, "transfers": transfers, "errors": errors, "peerNotifications": notification_results, "updatedBalances": updated_balances},
+        default=_decimal_default,
+    )
+
+
+def _updated_balances_for(user_id, account_ids):
+    """Fresh balance + division snapshot for every account touched by a
+    submit or an update - re-fetched after all writes, so these are
+    genuinely the new numbers, not what was true before this request."""
     updated_balances = []
-    for aid in affected_account_ids:
+    for aid in account_ids:
         account = accounts_table.get_item(Key={"userId": user_id, "accountId": aid}).get("Item")
         if not account:
             continue
@@ -732,136 +614,92 @@ def _submit(user_id, body):
             "balance": account.get("balance", 0),
             "divisions": [{"divisionId": d["divisionId"], "name": d.get("name", ""), "balance": d.get("balance", 0)} for d in account_divisions],
         })
+    return updated_balances
+
+
+def _update_payday(user_id, body):
+    """Corrects an already-posted payday's budget/planned-expense amounts
+    by posting a small delta transaction for just the difference - the
+    original transfer stays exactly as it was (an accurate record of
+    what actually happened when), Update just adds a second entry for
+    the correction. Used both after an auto-sweep (the common case) and
+    after a manual/early submit."""
+    payday_date = body.get("paydayDate")
+    history = get_payday_history(user_id, payday_date)
+    if not history:
+        return _response(404, {"error": "No payday found for that date."})
+
+    transfers = history.get("transfers", [])
+    by_category = {t["category"]: t for t in transfers if "category" in t}
+    by_planned_id = {t["plannedExpenseId"]: t for t in transfers if "plannedExpenseId" in t}
+
+    corrections = []
+    errors = []
+    affected_account_ids = set()
+
+    def _apply_delta(entry, new_amount, planned_expense_id=None):
+        old_amount = decimal.Decimal(str(entry["amount"]))
+        new_amount = max(decimal.Decimal(str(new_amount)), decimal.Decimal("0"))
+        delta = new_amount - old_amount
+        if delta == 0:
+            return
+        from_account = entry["fromAccountId"]
+        to_account = entry["toAccountId"]
+        # A positive delta needs more money moved from->to; a negative
+        # delta needs some of it moved back, to->from.
+        try:
+            if delta > 0:
+                execute_transfer(accounts_table, transactions_table, user_id, from_account, to_account, delta,
+                                  description=f"Payday Review correction: {entry.get('category') or entry.get('name', '')}")
+            else:
+                execute_transfer(accounts_table, transactions_table, user_id, to_account, from_account, -delta,
+                                  description=f"Payday Review correction: {entry.get('category') or entry.get('name', '')}")
+        except Exception as e:
+            print(f"payday: update correction transfer failed for user {user_id}, entry={entry}: {e}")
+            errors.append({"type": "correction", "category": entry.get("category"), "plannedExpenseId": entry.get("plannedExpenseId"), "error": str(e)})
+            return
+        if entry.get("divisionId"):
+            adjust_division_balance(to_account, entry["divisionId"], delta)
+        if planned_expense_id:
+            # Clamp so a correction can never take a planned expense's
+            # progress negative - the most a downward correction can back
+            # out is however much this specific contribution added.
+            clamp = max(delta, -old_amount)
+            planned_expenses_table.update_item(
+                Key={"userId": user_id, "plannedExpenseId": planned_expense_id},
+                UpdateExpression="ADD amountSaved :delta",
+                ExpressionAttributeValues={":delta": clamp},
+            )
+        entry["amount"] = new_amount
+        corrections.append({
+            "at": datetime.now(timezone.utc).isoformat(),
+            "category": entry.get("category"), "plannedExpenseId": entry.get("plannedExpenseId"),
+            "previousAmount": float(old_amount), "newAmount": float(new_amount),
+        })
+        affected_account_ids.add(from_account)
+        affected_account_ids.add(to_account)
+
+    for adj in body.get("budgetAdjustments", []):
+        entry = by_category.get(adj.get("category"))
+        if entry:
+            _apply_delta(entry, adj["amount"])
+    for adj in body.get("plannedExpenseAdjustments", []):
+        entry = by_planned_id.get(adj.get("plannedExpenseId"))
+        if entry:
+            _apply_delta(entry, adj["amount"], planned_expense_id=adj.get("plannedExpenseId"))
+
+    if corrections:
+        all_corrections = (history.get("corrections") or []) + corrections
+        save_payday_history(
+            user_id, payday_date, history.get("posted", []), transfers, history.get("errors", []),
+            reviewed=True, corrections=all_corrections, submitted_at=history.get("submittedAt"),
+        )
 
     return _response(
-        201,
-        {"posted": posted, "transfers": transfers, "errors": errors, "peerNotifications": notification_results, "updatedBalances": updated_balances},
+        200,
+        {"corrections": corrections, "errors": errors, "updatedBalances": _updated_balances_for(user_id, affected_account_ids)},
         default=_decimal_default,
     )
-
-
-def _to_decimal(value):
-    """Recursively converts plain floats to Decimal - boto3's DynamoDB
-    resource raises TypeError on a raw float in put_item, and this
-    function's own caller wraps everything in a bare try/except, so
-    without this conversion, every payday history write has been
-    failing completely silently."""
-    if isinstance(value, float):
-        return decimal.Decimal(str(value))
-    if isinstance(value, dict):
-        return {k: _to_decimal(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_to_decimal(v) for v in value]
-    return value
-
-
-def _reverse_payday(user_id, payday_date):
-    """Undoes a specific submission - deletes every transaction it
-    created, reverses every balance and division impact using the exact
-    delta that was applied (not recomputed, since budgets/prices may
-    have changed since), restores a reversed recurring item's schedule
-    to exactly what it was before that occurrence posted, and backs out
-    any planned-expense progress that was credited. Older history
-    records (from before this reversal system existed) won't have the
-    _reversal data needed and are silently skipped per-item rather than
-    failing the whole reversal - partial is better than none when the
-    alternative is no way to undo anything from that period at all."""
-    history = payday_history_table.get_item(
-        Key={"userId": user_id, "paydayDate": payday_date}
-    ).get("Item")
-    if not history:
-        return _response(404, {"error": "No submission found for that payday."})
-    if history.get("reversed"):
-        return _response(400, {"error": "This payday has already been reversed."})
-
-    skipped = 0
-
-    for item in history.get("posted", []):
-        rev = item.get("_reversal")
-        if not rev:
-            skipped += 1
-            continue
-        transactions_table.delete_item(Key={"accountId": rev["accountId"], "sk": rev["sk"]})
-        delta = decimal.Decimal(str(rev["balanceDelta"]))
-        accounts_table.update_item(
-            Key={"userId": user_id, "accountId": rev["accountId"]},
-            UpdateExpression="ADD balance :neg",
-            ExpressionAttributeValues={":neg": -delta},
-        )
-        if rev.get("divisionId"):
-            adjust_division_balance(rev["accountId"], rev["divisionId"], -delta)
-        if rev.get("type") == "recurring":
-            recurring_table.update_item(
-                Key={"accountId": rev["accountId"], "recurringId": item["recurringId"]},
-                UpdateExpression="SET nextDueDate = :next, occurrenceOverrides = :overrides, occurrenceDateOverrides = :dateOverrides",
-                ExpressionAttributeValues={
-                    ":next": rev["priorNextDueDate"],
-                    ":overrides": rev["priorOccurrenceOverrides"],
-                    ":dateOverrides": rev["priorOccurrenceDateOverrides"],
-                },
-            )
-
-    for t in history.get("transfers", []):
-        rev = t.get("_reversal")
-        if not rev:
-            skipped += 1
-            continue
-        transactions_table.delete_item(Key={"accountId": rev["fromAccountId"], "sk": rev["fromSk"]})
-        transactions_table.delete_item(Key={"accountId": rev["toAccountId"], "sk": rev["toSk"]})
-        amount = decimal.Decimal(str(rev["amount"]))
-        accounts_table.update_item(
-            Key={"userId": user_id, "accountId": rev["fromAccountId"]},
-            UpdateExpression="ADD balance :amt",
-            ExpressionAttributeValues={":amt": amount},
-        )
-        accounts_table.update_item(
-            Key={"userId": user_id, "accountId": rev["toAccountId"]},
-            UpdateExpression="ADD balance :neg",
-            ExpressionAttributeValues={":neg": -amount},
-        )
-        if rev.get("divisionId"):
-            adjust_division_balance(rev["toAccountId"], rev["divisionId"], -amount)
-        if rev.get("plannedExpenseId"):
-            planned_expenses_table.update_item(
-                Key={"userId": user_id, "plannedExpenseId": rev["plannedExpenseId"]},
-                UpdateExpression="ADD amountSaved :neg",
-                ExpressionAttributeValues={":neg": -amount},
-            )
-
-    payday_history_table.update_item(
-        Key={"userId": user_id, "paydayDate": payday_date},
-        UpdateExpression="SET reversed = :true, reversedAt = :now",
-        ExpressionAttributeValues={":true": True, ":now": datetime.now(timezone.utc).isoformat()},
-    )
-
-    return _response(200, {"reversed": True, "skippedItems": skipped})
-
-
-def _save_payday_history(user_id, posted, transfers=None, errors=None):
-    """A snapshot for browsing past paydays - deliberately disposable
-    (TTL'd after 1.5 years), unlike the real transactions it corresponds
-    to, which are kept indefinitely and remain the actual source of
-    truth. Best-effort: a failure here should never block the real
-    submit, which has already happened by this point. errors is the
-    list of items that failed to post/transfer during this submission
-    (see _submit) - kept alongside posted/transfers so a partial
-    submission is visible in history, not indistinguishable from a
-    clean one."""
-    try:
-        today = date.today().isoformat()
-        expires_at = int((datetime.now(timezone.utc) + timedelta(days=548)).timestamp())
-        payday_history_table.put_item(Item={
-            "userId": user_id,
-            "paydayDate": today,
-            "submittedAt": datetime.now(timezone.utc).isoformat(),
-            "posted": _to_decimal(posted),
-            "transfers": _to_decimal(transfers or []),
-            "errors": _to_decimal(errors or []),
-            "reversed": False,
-            "expiresAt": expires_at,
-        })
-    except Exception as e:
-        print(f"payday history save failed for user {user_id}: {e}")
 
 
 def _send_peer_notification(sender_id, entry):
@@ -1005,21 +843,6 @@ def _post_recurring_occurrence(user_id, adj):
         "description": template.get("description", ""),
         "category": template.get("category", "Uncategorized"),
         "isIncome": is_income,
-        # Everything below is for reversal only, not shown in the normal
-        # UI - exactly what's needed to undo this specific posting:
-        # delete the one transaction row it created, put the balance
-        # deltas back, and restore the schedule to exactly what it was
-        # before this occurrence advanced it.
-        "_reversal": {
-            "type": "recurring",
-            "accountId": account_id,
-            "sk": txn_item["sk"],
-            "balanceDelta": float(balance_delta),
-            "divisionId": template.get("divisionId"),
-            "priorNextDueDate": occurrence_date,
-            "priorOccurrenceOverrides": template.get("occurrenceOverrides") or {},
-            "priorOccurrenceDateOverrides": template.get("occurrenceDateOverrides") or {},
-        },
     }
 
 
@@ -1063,13 +886,6 @@ def _post_additional_transaction(user_id, extra):
         "direction": direction,
         "description": (extra.get("description") or "")[:250],
         "category": extra.get("category", "Uncategorized"),
-        "_reversal": {
-            "type": "additional",
-            "accountId": account_id,
-            "sk": sk,
-            "balanceDelta": float(delta),
-            "divisionId": extra.get("divisionId"),
-        },
     }
 
 

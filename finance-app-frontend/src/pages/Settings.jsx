@@ -225,12 +225,19 @@ export default function SettingsPage() {
               )}
             </div>
           )}
-          <Row last>
+          <Row>
             <div className="min-w-0 pr-3">
               <p className="text-sm" style={{ color: colors.text }}>Shared-account activity alerts</p>
               <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when someone I've shared an account with adds, edits, or deletes something</p>
             </div>
             {prefs && <Toggle on={prefs.sharedActivityAlertsEnabled} onClick={() => updatePref({ sharedActivityAlertsEnabled: !prefs.sharedActivityAlertsEnabled })} disabled={savingPref} />}
+          </Row>
+          <Row last>
+            <div className="min-w-0 pr-3">
+              <p className="text-sm" style={{ color: colors.text }}>Payday Review emails</p>
+              <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when budgets or planned expenses auto-post for a real payday</p>
+            </div>
+            {prefs && <Toggle on={prefs.paydayReviewEmailEnabled} onClick={() => updatePref({ paydayReviewEmailEnabled: !prefs.paydayReviewEmailEnabled })} disabled={savingPref} />}
           </Row>
         </Card>
 
