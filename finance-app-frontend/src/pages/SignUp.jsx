@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Check } from "lucide-react";
+import { Lock, Check, Sun, Moon } from "lucide-react";
 import { signUp, confirmSignUp, resendConfirmationCode } from "../lib/cognito";
 import { useAuth } from "../lib/authContext";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
@@ -8,8 +8,16 @@ import { useTheme } from "../lib/ThemeContext";
 import { useIsDesktop } from "../lib/useIsDesktop";
 import { PASSWORD_RULES, EMAIL_RE } from "../lib/passwordRules";
 
+function ThemeToggleButton({ theme, toggleTheme }) {
+  return (
+    <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="fixed top-4 right-4 z-10 p-1 transition-opacity hover:opacity-70">
+      {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+}
+
 export default function SignUpPage() {
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
   const { signIn } = useAuth();
@@ -80,6 +88,7 @@ export default function SignUpPage() {
   if (step === "confirm") {
     return (
       <div className="min-h-screen flex items-center justify-center px-5" style={{ background: colors.bg, fontFamily: fontBody }}>
+        <ThemeToggleButton theme={theme} toggleTheme={toggleTheme} />
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <h1 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 26, fontWeight: 600 }}>Check your email</h1>
@@ -217,6 +226,7 @@ export default function SignUpPage() {
   if (!isDesktop) {
     return (
       <div className="min-h-screen flex items-center justify-center px-5" style={{ background: colors.bg, fontFamily: fontBody }}>
+        <ThemeToggleButton theme={theme} toggleTheme={toggleTheme} />
         {formCard}
       </div>
     );
@@ -226,6 +236,7 @@ export default function SignUpPage() {
   // the full logo and tagline at real size, the form in its own panel.
   return (
     <div className="min-h-screen flex" style={{ background: colors.bg, fontFamily: fontBody }}>
+      <ThemeToggleButton theme={theme} toggleTheme={toggleTheme} />
       <div
         className="flex-1 flex flex-col justify-between p-12"
         style={{ background: colors.surface, borderRight: `1px solid ${colors.border}` }}
