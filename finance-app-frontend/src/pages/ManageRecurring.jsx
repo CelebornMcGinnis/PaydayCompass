@@ -126,6 +126,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
   const [savingDivision, setSavingDivision] = useState(false);
   const [nextDueDate, setNextDueDate] = useState(initial?.nextDueDate ?? new Date().toISOString().slice(0, 10));
   const [keepAsOverdue, setKeepAsOverdue] = useState(false);
+  const [notifyOnPost, setNotifyOnPost] = useState(initial?.notifyOnPost ?? false);
   const [showBackfillFields, setShowBackfillFields] = useState(false);
   const [backfillFromDate, setBackfillFromDate] = useState(new Date().toISOString().slice(0, 10));
   const [showBackfillConfirm, setShowBackfillConfirm] = useState(false);
@@ -193,6 +194,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
       externalBankAccountId: externalBankAccountId || null,
       divisionId: divisionId || null,
       nextDueDate,
+      notifyOnPost,
       keepAsOverdue: !isEditing ? keepAsOverdue : undefined,
       backfillFromDate: !isEditing && showBackfillFields && backfillFromDate < today ? backfillFromDate : undefined,
     };
@@ -540,6 +542,14 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
             </label>
           </div>
         )}
+      </div>
+
+      <div className="mb-4 flex items-center gap-1.5">
+        <label className="flex items-center gap-2 text-xs" style={{ color: colors.text }}>
+          <input type="checkbox" checked={notifyOnPost} onChange={(e) => setNotifyOnPost(e.target.checked)} />
+          Email me each time this posts
+        </label>
+        <InfoBubble text="Also requires Recurring post alerts to be turned on in Settings - both need to be on for the email to send." />
       </div>
 
       {!isEditing && (

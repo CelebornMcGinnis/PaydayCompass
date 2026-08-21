@@ -27,6 +27,7 @@ import boto3
 from .divisions import adjust_division_balance
 from .low_balance_alerts import check_low_balance_alert
 from .budget_notify import trigger_budget_check
+from .recurring_notify import notify_recurring_posted
 
 _dynamodb = boto3.resource("dynamodb")
 
@@ -104,6 +105,8 @@ def post_occurrence(template, occurrence_date, *, source):
 
     if not is_income:
         trigger_budget_check(template["userId"], account_id, template.get("category", "Uncategorized"), amount)
+
+    notify_recurring_posted(template["userId"], template, item, balance_delta)
 
     return item, balance_delta
 

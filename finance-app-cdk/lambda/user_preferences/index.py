@@ -55,6 +55,18 @@ Fields:
                                 shared source of truth every category
                                 dropdown in the app merges in, same as
                                 every other preference in this file.
+  paydayReviewEmailEnabled     bool, default False - email when Payday
+                                Review's daily auto-sweep posts a budget/
+                                planned-expense transfer (finance_common.
+                                payday_review_notify).
+  recurringPostEmailEnabled    bool, default False - master switch for
+                                per-recurring-item "email me when this
+                                posts" (finance_common.recurring_notify).
+                                A specific item's own notifyOnPost flag
+                                must ALSO be on - this is a global gate,
+                                not a per-item default, same relationship
+                                budgetAlertsEnabled has with a budget's own
+                                alertsEnabled.
 """
 import os
 import json
@@ -73,6 +85,8 @@ DEFAULTS = {
     "divisionTrendCharts": None,
     "dashboardQuickActions": None,
     "customCategories": [],
+    "paydayReviewEmailEnabled": False,
+    "recurringPostEmailEnabled": False,
 }
 
 

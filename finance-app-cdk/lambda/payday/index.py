@@ -56,6 +56,7 @@ from finance_common.payday_periods import previous_real_payday as _previous_real
 from finance_common.low_balance_projection import project_lowest_balance
 from finance_common.payday_sweep import sweep_budgets_and_planned_expenses
 from finance_common.payday_history import save_payday_history, get_payday_history, mark_reviewed
+from finance_common.recurring_notify import notify_recurring_posted
 ses_client = boto3.client("ses")
 SES_FROM_ADDRESS = os.environ.get("SES_FROM_ADDRESS", "alerts@example.com")
 from finance_common.http_response import response as _response, decimal_default as _decimal_default
@@ -816,6 +817,8 @@ def _post_recurring_occurrence(user_id, adj):
 
     if template.get("divisionId"):
         adjust_division_balance(account_id, template["divisionId"], balance_delta)
+
+    notify_recurring_posted(user_id, template, txn_item, balance_delta)
 
     next_due = next_date_after(template, occurrence_date)
     remaining_overrides = {

@@ -232,12 +232,19 @@ export default function SettingsPage() {
             </div>
             {prefs && <Toggle on={prefs.sharedActivityAlertsEnabled} onClick={() => updatePref({ sharedActivityAlertsEnabled: !prefs.sharedActivityAlertsEnabled })} disabled={savingPref} />}
           </Row>
-          <Row last>
+          <Row>
             <div className="min-w-0 pr-3">
               <p className="text-sm" style={{ color: colors.text }}>Payday Review emails</p>
               <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when budgets or planned expenses auto-post for a real payday</p>
             </div>
             {prefs && <Toggle on={prefs.paydayReviewEmailEnabled} onClick={() => updatePref({ paydayReviewEmailEnabled: !prefs.paydayReviewEmailEnabled })} disabled={savingPref} />}
+          </Row>
+          <Row last>
+            <div className="min-w-0 pr-3">
+              <p className="text-sm" style={{ color: colors.text }}>Recurring post alerts</p>
+              <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Master switch for any recurring income/expense marked "email me each time this posts" - both need to be on</p>
+            </div>
+            {prefs && <Toggle on={prefs.recurringPostEmailEnabled} onClick={() => updatePref({ recurringPostEmailEnabled: !prefs.recurringPostEmailEnabled })} disabled={savingPref} />}
           </Row>
         </Card>
 
