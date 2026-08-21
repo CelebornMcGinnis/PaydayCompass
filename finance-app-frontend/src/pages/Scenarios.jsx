@@ -208,7 +208,7 @@ export default function ScenariosPage() {
           Build a scenario
         </SectionHeader>
 
-        <div className="rounded-2xl p-4 mb-6" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl p-4 mb-6" data-wizard-target="wizard-scenarios-build" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (e.g. If I got a raise)" className="w-full rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }} />
 
           <p className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Adjust an existing income</p>
@@ -309,7 +309,7 @@ export default function ScenariosPage() {
           ))}
           <button onClick={() => setNewExpenses((r) => [...r, { id: uid(), description: "", category: "", monthlyAmount: "", startDate: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add hypothetical expense</button>
 
-          <div className="flex items-center mb-2">
+          <div className="flex items-center mb-2" data-wizard-target="wizard-scenarios-onetime">
             <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>One-time expense</p>
             <InfoBubble text="A single cost on a specific date - not an ongoing monthly bill. Attributed to whichever real payday comes right before that date, since that's when you'd need the money set aside." />
           </div>
@@ -322,7 +322,7 @@ export default function ScenariosPage() {
           ))}
           <button onClick={() => setOneTimeExpenses((r) => [...r, { id: uid(), description: "", amount: "", date: "" }])} className="text-xs mb-4 flex items-center gap-1" style={{ color: colors.accentLight }}><Plus size={12} />Add one-time expense</button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2" data-wizard-target="wizard-scenarios-preview">
             <button onClick={runPreview} disabled={previewLoading} className="flex-1 rounded-lg py-2.5 text-sm font-medium" style={{ border: `1px solid ${colors.border}`, color: colors.text, opacity: previewLoading ? 0.6 : 1 }}>
               {previewLoading ? "Calculating…" : "Preview"}
             </button>
@@ -348,7 +348,7 @@ export default function ScenariosPage() {
         )}
 
         <SectionHeader>Saved scenarios</SectionHeader>
-        <div className="rounded-2xl mb-4 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl mb-4 overflow-hidden" data-wizard-target="wizard-scenarios-saved" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           {savedScenarios === null && !error ? (
             <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Loading…</p>
           ) : savedScenarios.length === 0 ? (
@@ -369,7 +369,7 @@ export default function ScenariosPage() {
         </div>
 
         {savedScenarios && savedScenarios.length > 0 && (
-          <button onClick={runCompare} disabled={selectedForCompare.length === 0 || comparing} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium" style={{ background: selectedForCompare.length > 0 ? colors.accent : colors.surface, color: selectedForCompare.length > 0 ? colors.bg : colors.textMuted, opacity: comparing ? 0.6 : 1 }}>
+          <button onClick={runCompare} disabled={selectedForCompare.length === 0 || comparing} data-wizard-target="wizard-scenarios-compare" className="w-full rounded-2xl py-3 mb-6 text-sm font-medium" style={{ background: selectedForCompare.length > 0 ? colors.accent : colors.surface, color: selectedForCompare.length > 0 ? colors.bg : colors.textMuted, opacity: comparing ? 0.6 : 1 }}>
             {comparing ? "Comparing…" : `Compare ${selectedForCompare.length || ""} selected`}
           </button>
         )}

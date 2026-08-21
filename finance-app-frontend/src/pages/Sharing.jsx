@@ -29,8 +29,8 @@ function SectionHeader({ children }) {
   return <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-2 px-1">{children}</h3>;
 }
 
-function Card({ children }) {
-  return <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>{children}</div>;
+function Card({ children, ...rest }) {
+  return <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }} {...rest}>{children}</div>;
 }
 
 function InviteForm({ accounts, onCancel, onSave, saving }) {
@@ -90,7 +90,7 @@ function InviteForm({ accounts, onCancel, onSave, saving }) {
         ))}
       </div>
 
-      <div className="flex items-center mb-2">
+      <div className="flex items-center mb-2" data-wizard-target="wizard-sharing-data-types">
         <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Also share</p>
         <InfoBubble text="Each of these is independent of the account access above and of each other — sharing the account view-only doesn't mean any of this is shared too, unless you set it here. Applies the same way to every account selected above." />
       </div>
@@ -330,7 +330,7 @@ export default function SharingPage() {
         {pendingInvitesForMe.length > 0 && (
           <>
             <SectionHeader>Waiting on you</SectionHeader>
-            <Card>
+            <Card data-wizard-target="wizard-sharing-pending">
               {pendingInvitesForMe.map((s, i) => {
                 const extendedGrants = Object.entries(s.dataPermissions || {}).filter(([, v]) => v !== "not_shared");
                 const accountLabel = s.accountIds.length > 1 ? `${s.accountIds.length} accounts` : (accountNames[s.accountIds[0]] || "an account");
@@ -359,14 +359,14 @@ export default function SharingPage() {
         {showForm ? (
           <InviteForm accounts={accounts} onCancel={() => setShowForm(false)} onSave={sendInvite} saving={saving} />
         ) : (
-          <button type="button" onClick={() => setShowForm(true)} disabled={accounts.length === 0} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+          <button type="button" onClick={() => setShowForm(true)} disabled={accounts.length === 0} data-wizard-target="wizard-sharing-invite" className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
             <Plus size={16} />
             Share an account
           </button>
         )}
 
         <SectionHeader>People you've shared with</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-sharing-mine">
           {mySharesOut.length === 0 ? (
             <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>You haven't shared any accounts yet.</p>
           ) : (

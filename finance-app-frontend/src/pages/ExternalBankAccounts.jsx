@@ -235,7 +235,7 @@ export default function ExternalBankAccountsPage() {
 
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
-        <div className="rounded-2xl px-4 relative overflow-hidden mb-4" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl px-4 relative overflow-hidden mb-4" data-wizard-target="wizard-extbank-list" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <PerfEdge />
           <div className="pt-1">
             {accounts === null && !error ? (
@@ -284,6 +284,7 @@ export default function ExternalBankAccountsPage() {
           <button
             type="button"
             onClick={() => setAdding(true)}
+            data-wizard-target="wizard-extbank-add"
             className="w-full rounded-2xl py-3 text-sm font-medium flex items-center justify-center gap-2"
             style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}
           >

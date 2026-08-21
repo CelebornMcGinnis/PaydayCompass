@@ -218,7 +218,13 @@ export default function CategoryTrendsPage() {
 
   return (
     <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>
-      <PageHeader title="Category trends" />
+      <PageHeader
+        title="Category trends"
+        wizardBlocked={transactions && allCategories.length === 0 ? {
+          message: "This page charts your spending by category over time - you'll need to log a few expenses first before there's anything real to walk through here.",
+          guideTo: "/add-expense",
+        } : null}
+      />
 
       <div className="px-5 pt-6 max-w-2xl mx-auto">
         <PageBlurb>Spending by category over time, from 3 months back to 2 years.</PageBlurb>
@@ -227,7 +233,7 @@ export default function CategoryTrendsPage() {
           <InfoBubble text="Across every account, month by month. Starts with your top 5 categories by spend, one chart each - add your own charts (combining categories if you want) or remove any of them. Your layout is saved and stays consistent everywhere you sign in. A dashed line marks a category's budget (normalized to a monthly figure), in that category's own color, when one exists." />
         </div>
 
-        <div className="flex gap-1.5 mb-4 px-1">
+        <div className="flex gap-1.5 mb-4 px-1" data-wizard-target="wizard-trends-range">
           {RANGE_OPTIONS.map((opt) => {
             const active = range === opt.key;
             return (
@@ -291,7 +297,7 @@ export default function CategoryTrendsPage() {
                 <X size={14} />
               </button>
             </div>
-            <div className="rounded-2xl p-3 pt-4" style={{ background: colors.surface, border: `1px solid ${colors.border}`, height: chart.categories.length > 1 ? 210 : 180 }}>
+            <div className="rounded-2xl p-3 pt-4" data-wizard-target="wizard-trends-chart" style={{ background: colors.surface, border: `1px solid ${colors.border}`, height: chart.categories.length > 1 ? 210 : 180 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 4, right: 12, left: -10, bottom: 0 }}>
                   <CartesianGrid stroke={colors.border} vertical={false} />
@@ -341,6 +347,7 @@ export default function CategoryTrendsPage() {
             <button
               type="button"
               onClick={() => setShowAddChart(true)}
+              data-wizard-target="wizard-trends-add"
               className="w-full rounded-2xl py-3 mb-5 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
               style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}
             >

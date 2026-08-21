@@ -16,9 +16,9 @@ function SectionHeader({ children }) {
   );
 }
 
-function Card({ children }) {
+function Card({ children, ...rest }) {
   return (
-    <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+    <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }} {...rest}>
       {children}
     </div>
   );
@@ -165,7 +165,7 @@ export default function SettingsPage() {
         {email && <p className="text-xs mb-6 px-1" style={{ color: colors.textMuted }}>Signed in as {email}</p>}
 
         <SectionHeader>Security</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-mfa">
           <Row onClick={() => navigate("/settings/mfa")} last>
             <div className="flex items-center gap-3">
               <ShieldCheck size={16} style={{ color: colors.accentLight }} />
@@ -187,7 +187,7 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Notifications</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-notifications">
           <Row>
             <div className="min-w-0 pr-3">
               <p className="text-sm" style={{ color: colors.text }}>Budget threshold alerts</p>
@@ -203,7 +203,7 @@ export default function SettingsPage() {
             {prefs && <Toggle on={prefs.lowBalanceAlertsEnabled} onClick={() => updatePref({ lowBalanceAlertsEnabled: !prefs.lowBalanceAlertsEnabled })} disabled={savingPref} />}
           </Row>
           {prefs && prefs.lowBalanceAlertsEnabled && (
-            <div className="px-4 pb-3.5" style={{ borderBottom: `1px solid ${colors.border}` }}>
+            <div className="px-4 pb-3.5" data-wizard-target="wizard-settings-threshold" style={{ borderBottom: `1px solid ${colors.border}` }}>
               <p className="text-xs mb-1.5" style={{ color: colors.textMuted }}>Alert threshold (applies to every account)</p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: colors.textMuted, fontFamily: "monospace" }}>$</span>
@@ -235,7 +235,7 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Account</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-account">
           {emailStep === "idle" && (
             <Row onClick={() => setEmailStep("editing")} last={pwStep === "idle" ? false : true}>
               <div className="flex items-center gap-3">
@@ -311,7 +311,7 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Danger zone</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-danger">
           {deleteStep === "idle" ? (
             <Row onClick={() => setDeleteStep("confirming")} last>
               <div className="flex items-center gap-3">

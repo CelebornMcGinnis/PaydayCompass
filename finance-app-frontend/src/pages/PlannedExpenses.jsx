@@ -21,7 +21,7 @@ const CONTRIBUTION_FREQUENCIES = [
 function PlannedExpenseCard({ item, onEdit, onDelete, onMarkComplete, onRevive, marking }) {
   const percent = item.targetAmount > 0 ? Math.min((item.amountSaved / item.targetAmount) * 100, 100) : 0;
   return (
-    <div className="rounded-2xl p-4 mb-3 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+    <div className="rounded-2xl p-4 mb-3 relative overflow-hidden" data-wizard-target="wizard-plannedexpenses-progress" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: colors.text }}>{item.name}</p>
@@ -30,7 +30,7 @@ function PlannedExpenseCard({ item, onEdit, onDelete, onMarkComplete, onRevive, 
             {item.recurrenceType === "annual" && " · annual"}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 pl-2">
+        <div className="flex items-center gap-2 shrink-0 pl-2" data-wizard-target="wizard-plannedexpenses-complete">
           {item.completed ? (
             item.recurrenceType !== "annual" && (
               <button onClick={onRevive} disabled={marking} className="text-xs underline" style={{ color: colors.accentLight, opacity: marking ? 0.5 : 1 }}>
@@ -221,7 +221,7 @@ function PlannedExpenseForm({ accounts, initial, onCancel, onSave, saving }) {
       </div>
 
       {accounts.length > 0 && (
-        <>
+        <div data-wizard-target="wizard-plannedexpenses-account">
           <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Where savings accumulate <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></label>
           <div className="relative mb-3">
             <select value={linkedAccountId} onChange={(e) => setLinkedAccountId(e.target.value)} className="w-full appearance-none rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}>
@@ -285,7 +285,7 @@ function PlannedExpenseForm({ accounts, initial, onCancel, onSave, saving }) {
               )}
             </div>
           )}
-        </>
+        </div>
       )}
 
       <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Notes <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></label>
@@ -409,7 +409,7 @@ export default function PlannedExpensesPage() {
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
         {activeItems.length > 0 && (
-          <div className="rounded-2xl p-4 mb-5 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="rounded-2xl p-4 mb-5 relative overflow-hidden" data-wizard-target="wizard-plannedexpenses-summary" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
             <div className="flex items-center mb-1">
               <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Suggested monthly total</p>
               <InfoBubble text="All your suggested contributions, normalized to a monthly figure, added together — this is roughly what to set aside each month across everything you're planning for." />
@@ -428,7 +428,7 @@ export default function PlannedExpensesPage() {
             onSave={saveItem}
           />
         ) : (
-          <button type="button" onClick={() => setEditingId("new")} className="w-full rounded-2xl py-3 mb-5 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+          <button type="button" onClick={() => setEditingId("new")} data-wizard-target="wizard-plannedexpenses-add" className="w-full rounded-2xl py-3 mb-5 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
             <Plus size={16} />
             Add a planned expense
           </button>

@@ -790,13 +790,13 @@ export default function ManageRecurringPage() {
         <PageBlurb>Create, edit, or delete recurring bills and income that post automatically on schedule.</PageBlurb>
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
-        <button type="button" onClick={() => setView("create")} disabled={!accounts} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+        <button type="button" data-wizard-target="wizard-recurring-add" onClick={() => setView("create")} disabled={!accounts} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
           <Plus size={16} />
           Add recurring income or expense
         </button>
 
         <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">Income</h3>
-        <div className="rounded-2xl px-4 mb-6 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl px-4 mb-6 relative overflow-hidden" data-wizard-target="wizard-recurring-income" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <div className="pt-1">
             {items === null && !error ? (
               <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Loading…</p>
@@ -811,7 +811,7 @@ export default function ManageRecurringPage() {
         </div>
 
         <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">Expenses</h3>
-        <div className="rounded-2xl px-4 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl px-4 relative overflow-hidden" data-wizard-target="wizard-recurring-expenses" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <div className="pt-1">
             {items === null && !error ? (
               <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Loading…</p>

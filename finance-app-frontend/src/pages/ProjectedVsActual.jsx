@@ -64,7 +64,7 @@ export default function ProjectedVsActualPage() {
 
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
-        <div className="flex gap-1.5 mb-5">
+        <div className="flex gap-1.5 mb-5" data-wizard-target="wizard-pva-range">
           {RANGE_OPTIONS.map((opt) => {
             const active = numPeriods === opt.key;
             return (
@@ -85,7 +85,7 @@ export default function ProjectedVsActualPage() {
 
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-3 mb-5" data-wizard-target="wizard-pva-stats">
               <div className="rounded-2xl p-4" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
                 <div className="flex items-center mb-1">
                   <p className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Projected / period</p>

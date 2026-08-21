@@ -173,7 +173,7 @@ export default function NotificationsPage() {
             )}
           </div>
         ) : (
-          <button onClick={() => setShowSend(true)} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+          <button onClick={() => setShowSend(true)} data-wizard-target="wizard-notify-send" className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
             <Send size={15} />
             Let someone know
           </button>
@@ -196,6 +196,7 @@ export default function NotificationsPage() {
           </>
         )}
 
+        <div data-wizard-target="wizard-notify-agreements">
         <SectionHeader info="Fund-movement notifications require mutual agreement — propose someone, and they have to accept before you can notify them.">
           Notification agreements
         </SectionHeader>
@@ -228,6 +229,7 @@ export default function NotificationsPage() {
             </>
           )}
         </Card>
+        </div>
 
         {showPropose ? (
           <div className="rounded-2xl p-4" style={{ background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}` }}>
