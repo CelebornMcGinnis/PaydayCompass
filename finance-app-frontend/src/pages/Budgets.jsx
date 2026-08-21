@@ -468,7 +468,7 @@ export default function BudgetsPage() {
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
         {projections && (
-          <div className="rounded-2xl p-4 mb-5 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="rounded-2xl p-4 mb-5 relative overflow-hidden" data-wizard-target="wizard-budgets-summary" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
             <p className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>This period</p>
             <p style={{ fontFamily: fontMono, fontSize: 20, color: colors.text }}>
               {formatMoney(projections.spentSoFarThisPeriod)}{" "}
@@ -503,13 +503,13 @@ export default function BudgetsPage() {
             saving={saving}
           />
         ) : (
-          <button onClick={() => { setEditingBudget(null); setShowForm(true); }} className="w-full rounded-2xl py-3 mb-5 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+          <button onClick={() => { setEditingBudget(null); setShowForm(true); }} data-wizard-target="wizard-budgets-add" className="w-full rounded-2xl py-3 mb-5 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
             <Plus size={16} />
             Add a budget
           </button>
         )}
 
-        <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">By category</h3>
+        <h3 data-wizard-target="wizard-budgets-list" style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">By category</h3>
 
         {budgets === null && !error && <p className="text-sm" style={{ color: colors.textMuted }}>Loading…</p>}
         {budgets !== null && budgets.length === 0 && <p className="text-sm" style={{ color: colors.textMuted }}>No budgets yet.</p>}

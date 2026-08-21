@@ -143,7 +143,7 @@ export default function AddExpensePage() {
             : "Log a purchase against one of your accounts — split it across multiple categories if it covers more than one kind of expense."}
         </PageBlurb>
 
-        <div className="flex gap-1.5 mb-5">
+        <div className="flex gap-1.5 mb-5" data-wizard-target="wizard-addexpense-direction">
           {[{ key: "debit", label: "Expense", activeColor: colors.alert }, { key: "credit", label: "Deposit", activeColor: colors.positive }].map((opt) => {
             const active = direction === opt.key;
             return (
@@ -168,7 +168,7 @@ export default function AddExpensePage() {
           <p className="text-sm" style={{ color: colors.textMuted }}>Loading your accounts…</p>
         ) : (
           <>
-            <div className="mb-5">
+            <div className="mb-5" data-wizard-target="wizard-addexpense-account">
               <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Account</label>
               <div className="relative">
                 <select
@@ -199,6 +199,7 @@ export default function AddExpensePage() {
                 <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>
                   {direction === "credit" && splits.length > 0 ? "Primary division" : "Division"} <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span>
                 </label>
+                <div data-wizard-target="wizard-addexpense-division">
                 <DivisionSelect
                   accountId={accountId}
                   divisions={divisions}
@@ -211,10 +212,11 @@ export default function AddExpensePage() {
                   wholeLabel={direction === "credit" ? "Don't add to a division" : "Don't deduct from a division"}
                   compact={false}
                 />
+                </div>
               </div>
             )}
 
-            <div className="rounded-2xl p-5 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <div className="rounded-2xl p-5 mb-5" data-wizard-target="wizard-addexpense-amount" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <label className="text-xs uppercase tracking-wide block mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Total amount</label>
               <div className="relative mb-4">
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl" style={{ color: colors.textMuted, fontFamily: fontMono }}>$</span>
@@ -289,7 +291,7 @@ export default function AddExpensePage() {
               <p className="text-[11px] text-right mt-1" style={{ color: colors.textMuted }}>{description.length}/250</p>
             </div>
 
-            <div className="flex items-center mb-3 px-1">
+            <div className="flex items-center mb-3 px-1" data-wizard-target="wizard-addexpense-splits">
               <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 16, fontWeight: 600 }}>Split into categories</h3>
               <span className="text-xs ml-1.5" style={{ color: colors.textMuted }}>(optional)</span>
             </div>
@@ -400,7 +402,7 @@ export default function AddExpensePage() {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 px-5 py-4 z-30" style={{ background: colors.surface, borderTop: `1px solid ${colors.border}` }}>
+      <div className="fixed bottom-0 left-0 right-0 px-5 py-4 z-30" data-wizard-target="wizard-addexpense-submit" style={{ background: colors.surface, borderTop: `1px solid ${colors.border}` }}>
         <div className="max-w-md mx-auto">
           {saved && <p className="text-xs text-center mb-1.5" style={{ color: colors.positive }}>Saved — add another below.</p>}
           <div className="flex gap-2">

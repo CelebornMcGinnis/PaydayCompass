@@ -17,9 +17,9 @@ function SectionHeader({ children }) {
   );
 }
 
-function Card({ children }) {
+function Card({ children, ...rest }) {
   return (
-    <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+    <div className="rounded-2xl mb-6 overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }} {...rest}>
       {children}
     </div>
   );
@@ -216,7 +216,7 @@ export default function SettingsPage() {
         {email && <p className="text-xs mb-6 px-1" style={{ color: colors.textMuted }}>Signed in as {email}</p>}
 
         <SectionHeader>Security</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-mfa">
           <Row onClick={() => navigate("/settings/mfa")} last>
             <div className="flex items-center gap-3">
               <ShieldCheck size={16} style={{ color: colors.accentLight }} />
@@ -238,7 +238,7 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Notifications</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-notifications">
           <Row>
             <div className="min-w-0 pr-3">
               <p className="text-sm" style={{ color: colors.text }}>Budget threshold alerts</p>
@@ -254,7 +254,7 @@ export default function SettingsPage() {
             {prefs && <Toggle on={prefs.lowBalanceAlertsEnabled} onClick={() => updatePref({ lowBalanceAlertsEnabled: !prefs.lowBalanceAlertsEnabled })} disabled={savingPref} />}
           </Row>
           {prefs && prefs.lowBalanceAlertsEnabled && (
-            <div className="px-4 pb-3.5" style={{ borderBottom: `1px solid ${colors.border}` }}>
+            <div className="px-4 pb-3.5" data-wizard-target="wizard-settings-threshold" style={{ borderBottom: `1px solid ${colors.border}` }}>
               <p className="text-xs mb-1.5" style={{ color: colors.textMuted }}>Alert threshold (applies to every account)</p>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: colors.textMuted, fontFamily: "monospace" }}>$</span>
@@ -276,12 +276,26 @@ export default function SettingsPage() {
               )}
             </div>
           )}
-          <Row last>
+          <Row>
             <div className="min-w-0 pr-3">
               <p className="text-sm" style={{ color: colors.text }}>Shared-account activity alerts</p>
               <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when someone I've shared an account with adds, edits, or deletes something</p>
             </div>
             {prefs && <Toggle on={prefs.sharedActivityAlertsEnabled} onClick={() => updatePref({ sharedActivityAlertsEnabled: !prefs.sharedActivityAlertsEnabled })} disabled={savingPref} />}
+          </Row>
+          <Row>
+            <div className="min-w-0 pr-3">
+              <p className="text-sm" style={{ color: colors.text }}>Payday Review emails</p>
+              <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Email me when budgets or planned expenses auto-post for a real payday</p>
+            </div>
+            {prefs && <Toggle on={prefs.paydayReviewEmailEnabled} onClick={() => updatePref({ paydayReviewEmailEnabled: !prefs.paydayReviewEmailEnabled })} disabled={savingPref} />}
+          </Row>
+          <Row last>
+            <div className="min-w-0 pr-3">
+              <p className="text-sm" style={{ color: colors.text }}>Recurring post alerts</p>
+              <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Master switch for any recurring income/expense marked "email me each time this posts" - both need to be on</p>
+            </div>
+            {prefs && <Toggle on={prefs.recurringPostEmailEnabled} onClick={() => updatePref({ recurringPostEmailEnabled: !prefs.recurringPostEmailEnabled })} disabled={savingPref} />}
           </Row>
         </Card>
 
@@ -330,7 +344,7 @@ export default function SettingsPage() {
         )}
 
         <SectionHeader>Account</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-account">
           {emailStep === "idle" && (
             <Row onClick={() => setEmailStep("editing")} last={pwStep === "idle" ? false : true}>
               <div className="flex items-center gap-3">
@@ -406,7 +420,7 @@ export default function SettingsPage() {
         </Card>
 
         <SectionHeader>Danger zone</SectionHeader>
-        <Card>
+        <Card data-wizard-target="wizard-settings-danger">
           {deleteStep === "idle" ? (
             <Row onClick={() => setDeleteStep("confirming")} last>
               <div className="flex items-center gap-3">

@@ -415,6 +415,7 @@ export default function MassAddTransactionsPage() {
       <div className="max-w-4xl mx-auto">
         <button
           type="button"
+          data-wizard-target="wizard-massadd-submit"
           onClick={handleSubmitAll}
           disabled={!canSubmit}
           className="w-full rounded-xl py-3 text-sm font-medium transition-opacity"
@@ -470,7 +471,7 @@ export default function MassAddTransactionsPage() {
                   const divisions = divisionsByAccount[row.accountId] || [];
                   return (
                     <React.Fragment key={row.id}>
-                      <tr style={{ background: row.status === "error" ? `${colors.alert}11` : colors.surface, borderTop: `1px solid ${colors.border}` }}>
+                      <tr data-wizard-target="wizard-massadd-row" style={{ background: row.status === "error" ? `${colors.alert}11` : colors.surface, borderTop: `1px solid ${colors.border}` }}>
                         <td className="px-2.5 py-2">
                           <select
                             value={row.direction}
@@ -489,6 +490,15 @@ export default function MassAddTransactionsPage() {
                             <option value="debit">Expense</option>
                             <option value="credit">Deposit</option>
                           </select>
+                        </td>
+                        <td className="px-2.5 py-2" data-wizard-target="wizard-massadd-recurring">
+                          <input
+                            type="checkbox"
+                            checked={row.recurring}
+                            onChange={(e) => updateRow(row.id, { ...row, recurring: e.target.checked, showSplits: e.target.checked ? false : row.showSplits })}
+                            aria-label="Recurring"
+                            style={{ width: 16, height: 16 }}
+                          />
                         </td>
                         <td className="px-2.5 py-2">
                           <input
@@ -536,7 +546,7 @@ export default function MassAddTransactionsPage() {
                           </button>
                         </td>
                       </tr>
-                      <tr style={{ background: row.status === "error" ? `${colors.alert}11` : colors.surface }}>
+                      <tr style={{ background: row.status === "error" ? `${colors.alert}11` : colors.surface }} data-wizard-target="wizard-massadd-detail">
                         <td colSpan={6} className="px-2.5 pb-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <DetailFields row={row} updateRow={updateRow} categoryOptions={categoryOptions} setCategoryOptions={setCategoryOptions} addCustomCategory={addCustomCategory} divisions={divisions} compact />
@@ -581,7 +591,7 @@ export default function MassAddTransactionsPage() {
         {rowsWithInfo.map((row, i) => {
           const divisions = divisionsByAccount[row.accountId] || [];
           return (
-            <div key={row.id} className="rounded-2xl p-4 mb-3" style={{ background: colors.surface, border: `1px solid ${row.status === "error" ? colors.alert : colors.border}` }}>
+            <div key={row.id} className="rounded-2xl p-4 mb-3" data-wizard-target="wizard-massadd-row" style={{ background: colors.surface, border: `1px solid ${row.status === "error" ? colors.alert : colors.border}` }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Row {i + 1}</span>
                 <div className="flex items-center gap-2">
@@ -622,7 +632,7 @@ export default function MassAddTransactionsPage() {
                     );
                   })}
                 </div>
-                <label className="flex items-center gap-1.5 text-xs shrink-0" style={{ color: colors.textMuted }}>
+                <label className="flex items-center gap-1.5 text-xs shrink-0" data-wizard-target="wizard-massadd-recurring" style={{ color: colors.textMuted }}>
                   <input
                     type="checkbox"
                     checked={row.recurring}
@@ -691,7 +701,7 @@ export default function MassAddTransactionsPage() {
                 )}
               </div>
 
-              <div className="mb-2">
+              <div className="mb-2" data-wizard-target="wizard-massadd-detail">
                 <DetailFields row={row} updateRow={updateRow} categoryOptions={categoryOptions} setCategoryOptions={setCategoryOptions} addCustomCategory={addCustomCategory} divisions={divisions} hideFrequency />
               </div>
             </div>

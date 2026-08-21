@@ -137,7 +137,7 @@ export default function UpcomingRecurringPage() {
 
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
-        <div className="flex gap-1.5 mb-5">
+        <div className="flex gap-1.5 mb-5" data-wizard-target="wizard-upcoming-range">
           {RANGE_OPTIONS.map((opt) => {
             const active = rangeDays === opt.key;
             return (
@@ -158,7 +158,7 @@ export default function UpcomingRecurringPage() {
 
         {items !== null && (
           <>
-            <div className="rounded-2xl p-4 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <div className="rounded-2xl p-4 mb-5" data-wizard-target="wizard-upcoming-total" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <p className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Total due in the next {rangeDays} days</p>
               <p style={{ fontFamily: fontMono, fontSize: 22, color: colors.text }}>{formatMoney(totalUpcoming)}</p>
             </div>
@@ -169,7 +169,7 @@ export default function UpcomingRecurringPage() {
               timeline.map(([date, occs]) => (
                 <div key={date} className="mb-5">
                   <p className="text-xs uppercase tracking-wide mb-2 px-1" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>{date}</p>
-                  <div className="rounded-2xl px-4" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+                  <div className="rounded-2xl px-4" data-wizard-target="wizard-upcoming-timeline" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
                     {occs.map((occ, i) => {
                       const rowKey = `${occ.accountId}-${occ.recurringId}-${occ.occurrenceDate}`;
                       const isEditing = editingKey === rowKey;
@@ -239,7 +239,7 @@ export default function UpcomingRecurringPage() {
                               {occ.occurrenceDate === occ.nextDueDate && (
                                 <>
                                   {actionError && <p className="text-xs mt-2" style={{ color: colors.alert }}>{actionError}</p>}
-                                  <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: `1px solid ${colors.border}` }}>
+                                  <div className="flex gap-2 mt-2 pt-2" data-wizard-target="wizard-upcoming-markpaid" style={{ borderTop: `1px solid ${colors.border}` }}>
                                     <button
                                       type="button"
                                       onClick={() => markPaid(occ, rowKey)}

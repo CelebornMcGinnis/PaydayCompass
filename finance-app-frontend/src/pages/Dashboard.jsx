@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus } from "lucide-react";
+import { Wallet, PiggyBank, CreditCard, TrendingUp, Landmark, Menu, X, Plus, ChevronRight, ChevronDown, ChevronUp, LogOut, Sun, Moon, ArrowDownLeft, PieChart, Repeat, Target, ArrowLeftRight, ListPlus, GraduationCap } from "lucide-react";
 import { accountsApi, sharingApi, peerNotificationsApi, divisionsApi, paydayApi, preferencesApi, externalBankAccountsApi, ApiError } from "../lib/apiClient";
 import { colors, fontDisplay, fontBody, fontMono, formatMoney } from "../lib/theme";
 import { useAuth } from "../lib/authContext";
@@ -69,7 +69,7 @@ function AccountCard({ account, divisions, expanded, onToggleExpand, onClick, av
               <ChevronRight size={16} style={{ color: colors.textMuted }} />
             </div>
             {showAvailable && (
-              <span className="text-xs" style={{ fontFamily: fontMono, color: colors.textMuted }}>({formatMoney(availableBalance)} available)</span>
+              <span className="text-xs" style={{ fontFamily: fontMono, color: availableBalance < 0 ? colors.alert : colors.textMuted }}>({formatMoney(availableBalance)} available)</span>
             )}
           </div>
         </div>
@@ -118,6 +118,7 @@ export default function DashboardPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasPendingShares, setHasPendingShares] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
+  const [hasUnreviewedPayday, setHasUnreviewedPayday] = useState(false);
   const [externalAccountsById, setExternalAccountsById] = useState({});
   const [quickActionIds, setQuickActionIds] = useState(null); // null until loaded (either from preferences or the built-in default)
   const [customizedActions, setCustomizedActions] = useState(false);
@@ -151,6 +152,7 @@ export default function DashboardPage() {
     { ref: quickActionsRef, title: "Quick actions", body: "The fastest way to add an expense or income, or jump straight to Budgets, Recurring, or Planned Expenses - all of these are also in the menu, so use whichever you prefer." },
     { ref: accountsListRef, title: "Your accounts", body: "Tap any account to see its transactions, spending trends, and category breakdown." },
     { ref: addAccountRef, title: "Adding an account", body: "Add as many as you actually use — checking, savings, credit cards, whatever's real for you." },
+    { title: "Every page has its own wizard too", body: "Look for a small graduation-cap icon in the top-right of most pages - that opens a focused tour just for that page, with a quick Basic option and a deeper Advanced one. Come back to any page's wizard whenever you want a refresher." },
     { ref: menuButtonRef, title: "Getting around", body: "Everything else lives behind this menu. Let's take a quick look at what's here." },
     ...NAV_LINKS.map((link) => ({ ref: navItemRef(link.to), title: link.label, body: link.description })),
   ];
@@ -159,7 +161,7 @@ export default function DashboardPage() {
   // every nav-item step after it - open right when that section starts,
   // close again once the tour moves past the last nav item (or ends).
   function handleWalkthroughStepChange(stepIndex) {
-    const menuSectionStart = 3; // index of the "Getting around" step above
+    const menuSectionStart = 5; // index of the "Getting around" step above
     const inMenuSection = stepIndex >= menuSectionStart && stepIndex < walkthroughSteps.length;
     setMenuOpen(inMenuSection);
   }
@@ -170,6 +172,19 @@ export default function DashboardPage() {
     searchParams.delete("tour");
     setSearchParams(searchParams, { replace: true });
   }
+
+  // Deep-link support for a wizard elsewhere in the app (e.g.
+  // TransferFunds' "you need a second account first" prerequisite
+  // notice) to land here with the add-account form already open -
+  // same query-param convention as ManageRecurring's ?new=income.
+  useEffect(() => {
+    if (searchParams.get("newAccount") === "1") {
+      setAddingAccount(true);
+      searchParams.delete("newAccount");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function loadAccounts() {
     accountsApi
@@ -205,6 +220,10 @@ export default function DashboardPage() {
       // Only a currently-active notification should light the dot - see
       // PageHeader.jsx's identical check for why raw list length is wrong.
       .then((d) => setHasNotifications((d.notifications || []).some((n) => n.isExpanded)))
+      .catch(() => {});
+    paydayApi
+      .history()
+      .then((d) => setHasUnreviewedPayday((d.history || []).some((h) => h.reviewed === false)))
       .catch(() => {});
     externalBankAccountsApi
       .list()
@@ -274,20 +293,11 @@ export default function DashboardPage() {
   const ownedAccountsSorted = (accounts || [])
     .filter((a) => !a.sharedFromUserId)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  const dueByAccount = useMemo(() => {
-    if (!paydayData || paydayData.mode !== "preview") return {};
-    const totals = {};
-    for (const e of paydayData.upcomingExpenses || []) {
-      totals[e.accountId] = (totals[e.accountId] || 0) + e.estimatedAmount;
-    }
-    for (const b of paydayData.budgetedExpenses || []) {
-      if (b.accountId) totals[b.accountId] = (totals[b.accountId] || 0) + b.amount;
-    }
-    for (const pe of [...(paydayData.plannedExpenseContributions || []), ...(paydayData.overduePlannedExpenses || [])]) {
-      if (pe.linkedAccountId) totals[pe.linkedAccountId] = (totals[pe.linkedAccountId] || 0) + pe.amount;
-    }
-    return totals;
-  }, [paydayData]);
+  // The lowest balance each account is projected to hit before every
+  // income source has completed at least one full cycle - computed
+  // server-side (finance_common.low_balance_projection) since it needs
+  // the same recurrence/budget-proration math the backend already owns.
+  const lowestBalanceByAccount = paydayData?.mode === "preview" ? paydayData.lowestProjectedBalance || {} : {};
 
   const checkingAccounts = ownedAccountsSorted.filter((a) => a.type === "checking");
   const savingsAccounts = ownedAccountsSorted.filter((a) => a.type === "savings");
@@ -391,13 +401,16 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={() => setShowWalkthrough(true)} aria-label="Replay app tour" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
+            <GraduationCap size={18} />
+          </button>
           <button onClick={toggleTheme} aria-label="Toggle dark/light mode" style={{ color: colors.text }} className="p-1 transition-opacity hover:opacity-70">
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <div className="relative" ref={menuContainerRef}>
           <button ref={menuButtonRef} onClick={() => setMenuOpen((o) => !o)} aria-label="Menu" style={{ color: colors.text }} className="relative transition-opacity hover:opacity-70">
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
-            {(hasPendingShares || hasNotifications) && !menuOpen && (
+            {(hasPendingShares || hasNotifications || hasUnreviewedPayday) && !menuOpen && (
               <span className="absolute rounded-full" style={{ width: 8, height: 8, top: -1, right: -1, background: colors.alert, border: `1.5px solid ${colors.bg}` }} />
             )}
           </button>
@@ -409,7 +422,7 @@ export default function DashboardPage() {
                   <p className="px-3 pt-1.5 pb-0.5 text-xs uppercase tracking-wide" style={{ color: colors.textMuted, letterSpacing: "0.06em" }}>{section.label}</p>
                   {section.links.map((link) => {
                     const Icon = link.icon;
-                    const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications);
+                    const showDot = (link.to === "/sharing" && hasPendingShares) || (link.to === "/notifications" && hasNotifications) || (link.to === "/payday" && hasUnreviewedPayday);
                     return (
                       <button
                         key={link.to}
@@ -604,7 +617,7 @@ export default function DashboardPage() {
                         expanded={expandedAccountId === a.accountId}
                         onToggleExpand={() => setExpandedAccountId((id) => (id === a.accountId ? null : a.accountId))}
                         onClick={() => { if (!reorderMode) navigate(`/accounts/${a.accountId}`); }}
-                        availableBalance={dueByAccount[a.accountId] !== undefined ? a.balance - dueByAccount[a.accountId] : undefined}
+                        availableBalance={lowestBalanceByAccount[a.accountId]?.amount}
                         linkedExternalName={a.externalBankAccountId ? externalAccountsById[a.externalBankAccountId] : null}
                       />
                     </div>
@@ -622,7 +635,7 @@ export default function DashboardPage() {
               <InfoBubble text="Accounts someone else owns and has shared with you - not counted in your net worth above." />
             </div>
             {sharedAccounts.map((a) => (
-              <AccountCard key={a.accountId} account={a} onClick={() => navigate(`/accounts/${a.accountId}`)} availableBalance={dueByAccount[a.accountId] !== undefined ? a.balance - dueByAccount[a.accountId] : undefined} />
+              <AccountCard key={a.accountId} account={a} onClick={() => navigate(`/accounts/${a.accountId}`)} availableBalance={lowestBalanceByAccount[a.accountId]?.amount} />
             ))}
           </>
         )}

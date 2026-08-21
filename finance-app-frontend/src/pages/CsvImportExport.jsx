@@ -152,23 +152,27 @@ export default function CsvImportExportPage() {
       <div className="px-5 pt-6 max-w-md mx-auto">
         <PageBlurb>Download a template pre-filled with your account names, fill it in, and upload it back - or export it just to keep a copy.</PageBlurb>
 
-        <CsvSection
-          title="Transactions"
-          description="Bulk-add one-time expenses or income. Every row needs an existing account name and an amount - negative for an expense, positive for income."
-          filename="finance-app-import-template.csv"
-          exportFn={csvApi.exportTemplate}
-          importFn={csvApi.importCsv}
-          successLabel={(r) => `Imported ${r.imported} transaction${r.imported === 1 ? "" : "s"}.`}
-        />
+        <div data-wizard-target="wizard-csv-transactions">
+          <CsvSection
+            title="Transactions"
+            description="Bulk-add one-time expenses or income. Every row needs an existing account name and an amount - negative for an expense, positive for income."
+            filename="finance-app-import-template.csv"
+            exportFn={csvApi.exportTemplate}
+            importFn={csvApi.importCsv}
+            successLabel={(r) => `Imported ${r.imported} transaction${r.imported === 1 ? "" : "s"}.`}
+          />
+        </div>
 
-        <CsvSection
-          title="Recurring items"
-          description="Bulk-create recurring bills or income. Doesn't support custom-interval or nth-weekday-of-month schedules - use the Recurring page for those."
-          filename="finance-app-recurring-template.csv"
-          exportFn={csvApi.exportRecurringTemplate}
-          importFn={csvApi.importRecurringCsv}
-          successLabel={(r) => `Created ${r.created} recurring item${r.created === 1 ? "" : "s"}.`}
-        />
+        <div data-wizard-target="wizard-csv-recurring">
+          <CsvSection
+            title="Recurring items"
+            description="Bulk-create recurring bills or income. Doesn't support custom-interval or nth-weekday-of-month schedules - use the Recurring page for those."
+            filename="finance-app-recurring-template.csv"
+            exportFn={csvApi.exportRecurringTemplate}
+            importFn={csvApi.importRecurringCsv}
+            successLabel={(r) => `Created ${r.created} recurring item${r.created === 1 ? "" : "s"}.`}
+          />
+        </div>
       </div>
     </div>
   );

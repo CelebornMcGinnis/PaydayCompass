@@ -208,7 +208,7 @@ export class Api extends Construct {
       new apigateway.LambdaIntegration(lambdas.paydayFn),
       authOptions
     );
-    payday.addResource("reverse").addMethod(
+    payday.addResource("update").addMethod(
       "POST",
       new apigateway.LambdaIntegration(lambdas.paydayFn),
       authOptions

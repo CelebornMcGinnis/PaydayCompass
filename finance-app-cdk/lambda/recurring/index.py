@@ -216,6 +216,7 @@ def _create_recurring(user_id, access, account_id, body):
         "lastProcessedDate": None,
         "isIncome": body.get("isIncome", False),
         "isOneTimeCredit": body.get("isOneTimeCredit", False),  # bonus/gift flag
+        "notifyOnPost": body.get("notifyOnPost", False),  # email the owner each time this specific item posts
         "externalBankAccountId": body.get("externalBankAccountId"),  # expense templates: sticky, user-maintained label
         "divisionId": body.get("divisionId"),  # optional - which division within the account this item posts against, in addition to the account's own balance
         # occurrenceOverrides: {"2026-08-15": "45.30"} - date -> override NET amount only,
@@ -299,6 +300,7 @@ def _update_recurring(user_id, access, account_id, recurring_id, body):
         "nextDueDate",
         "externalBankAccountId",
         "divisionId",
+        "notifyOnPost",
     ):
         if field in body:
             editable_fields[field] = body[field]

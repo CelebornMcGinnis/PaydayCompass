@@ -181,7 +181,13 @@ export default function TransferFundsPage() {
 
   return (
     <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>
-      <PageHeader title="Transfer funds" />
+      <PageHeader
+        title="Transfer funds"
+        wizardBlocked={accounts !== null && accounts.length < 2 ? {
+          message: "Transfers move money between two of your own accounts, so you'll need at least two (that you can edit) before there's anything to walk through here.",
+          guideTo: "/?newAccount=1",
+        } : null}
+      />
 
       <div className="px-5 pt-6 max-w-md mx-auto">
         <PageBlurb>Move money between two of your own accounts - this posts real, linked transactions on both sides.</PageBlurb>
@@ -216,7 +222,7 @@ export default function TransferFundsPage() {
 
         {accounts && accounts.length >= 2 && (
           <>
-            <div className="mb-4">
+            <div className="mb-4" data-wizard-target="wizard-transfer-from-to">
               <label className="text-xs uppercase tracking-wide block mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>From</label>
               <div className="relative">
                 <select
@@ -283,6 +289,7 @@ export default function TransferFundsPage() {
                 </p>
               )}
               {toAccountId && (
+                <div data-wizard-target="wizard-transfer-division">
                 <DivisionSelect
                   accountId={toAccountId}
                   divisions={toDivisions}
@@ -294,10 +301,11 @@ export default function TransferFundsPage() {
                   }}
                   wholeLabel="Into the whole account, not a specific division"
                 />
+                </div>
               )}
             </div>
 
-            <div className="rounded-2xl p-5 mb-5" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <div className="rounded-2xl p-5 mb-5" data-wizard-target="wizard-transfer-submit" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <label className="text-xs uppercase tracking-wide block mb-2" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Amount</label>
               <div className="relative mb-4">
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 text-2xl" style={{ color: colors.textMuted, fontFamily: fontMono }}>$</span>

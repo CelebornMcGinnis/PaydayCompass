@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
 
@@ -13,7 +14,23 @@ import { colors, fontDisplay, fontBody } from "../lib/theme";
  * the menu, which is an async state update in the parent. This retries
  * briefly (500ms) before concluding a target is genuinely absent (e.g.
  * the account list ref when there are zero accounts) and skipping ahead.
+ *
+ * A step targets an element either via `ref` (a React ref, e.g.
+ * Dashboard's own walkthrough) or `targetId` (a plain string matched
+ * against a `data-wizard-target="..."` attribute, used by the
+ * centralized per-page wizards in lib/wizards.js so their content
+ * doesn't need a useRef() wired up in every page). A step with neither
+ * renders as a plain, non-spotlit centered card - the same fallback
+ * this component already uses for a genuinely-absent ref target, which
+ * is exactly right for a conceptual step that was never meant to point
+ * at one specific element.
  */
+function resolveStepElement(step) {
+  if (step?.ref?.current) return step.ref.current;
+  if (step?.targetId) return document.querySelector(`[data-wizard-target="${step.targetId}"]`);
+  return null;
+}
+
 export default function Walkthrough({ steps, onFinish, onStepChange }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
@@ -29,10 +46,24 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
     let attempts = 0;
     let timeoutId;
 
+    // Clear the previous step's spotlight position immediately - without
+    // this, a step whose target takes a moment to resolve (or never
+    // does) would show the NEW step's title/body over the OLD step's
+    // spotlight box for the length of the retry loop below, which reads
+    // as the highlight pointing at the wrong thing.
+    setRect(null);
+
     function measure() {
-      const el = step?.ref?.current;
+      const el = resolveStepElement(step);
       if (el) {
         setRect(el.getBoundingClientRect());
+        return;
+      }
+      // A step with no ref/targetId at all was never meant to point at
+      // anything - render it as a plain centered card immediately,
+      // never skip it (unlike below, where a target was expected).
+      if (!step?.ref && !step?.targetId) {
+        setRect(null);
         return;
       }
       if (attempts < 10) {
@@ -82,14 +113,24 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
         zIndex: 100,
       };
 
-  // Position the card below the spotlighted element, or centered if there's no target
+  // Position the card below the spotlighted element, or centered if there's no
+  // target. The 180 floor keeps the card from starting too low when the
+  // spotlighted element is near the bottom of the viewport (e.g. Payday's
+  // fixed submit bar) - but a longer step body can still be taller than
+  // that reserved space, which would push its Next/Done button below the
+  // viewport and out of reach. maxHeight + overflowY guarantee the button
+  // row stays reachable (via a scroll inside the card) no matter how long
+  // a given step's body text is or where the spotlighted element sits.
+  const cardTop = rect ? Math.min(rect.bottom + padding + 12, window.innerHeight - 180) : null;
   const cardStyle = rect
     ? {
         position: "fixed",
-        top: Math.min(rect.bottom + padding + 12, window.innerHeight - 180),
+        top: cardTop,
         left: 20,
         right: 20,
         zIndex: 101,
+        maxHeight: window.innerHeight - cardTop - 20,
+        overflowY: "auto",
       }
     : {
         position: "fixed",
@@ -98,12 +139,23 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
         right: 20,
         transform: "translateY(-50%)",
         zIndex: 101,
+        maxHeight: "calc(100dvh - 40px)",
+        overflowY: "auto",
       };
 
-  return (
+  // Portaled to document.body for the same reason as WizardMenu (which
+  // opens this when launched from PageHeader, nested deep enough under
+  // sticky/backdrop-filter ancestors that mobile Safari stops treating
+  // `position: fixed` as viewport-relative) - Dashboard's own tour opens
+  // this from much shallower in the tree, but there's no harm in the
+  // same fix applying there too.
+  return createPortal(
     <>
       <div style={spotlightStyle} />
-      <div style={{ ...cardStyle, background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}`, fontFamily: fontBody }} className="max-w-sm mx-auto rounded-2xl p-5">
+      <div
+        style={{ ...cardStyle, background: colors.surfaceRaised, border: `1px solid ${colors.borderStrong}`, fontFamily: fontBody }}
+        className="max-w-sm mx-auto rounded-2xl p-5"
+      >
         <div className="flex items-start justify-between mb-2">
           <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 17, fontWeight: 600 }}>{step.title}</h3>
           <button onClick={onFinish} aria-label="Skip tour" style={{ color: colors.textMuted }}>
@@ -130,6 +182,7 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

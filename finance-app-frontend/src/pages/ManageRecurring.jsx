@@ -126,6 +126,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
   const [savingDivision, setSavingDivision] = useState(false);
   const [nextDueDate, setNextDueDate] = useState(initial?.nextDueDate ?? new Date().toISOString().slice(0, 10));
   const [keepAsOverdue, setKeepAsOverdue] = useState(false);
+  const [notifyOnPost, setNotifyOnPost] = useState(initial?.notifyOnPost ?? false);
   const [showBackfillFields, setShowBackfillFields] = useState(false);
   const [backfillFromDate, setBackfillFromDate] = useState(new Date().toISOString().slice(0, 10));
   const [showBackfillConfirm, setShowBackfillConfirm] = useState(false);
@@ -193,6 +194,7 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
       externalBankAccountId: externalBankAccountId || null,
       divisionId: divisionId || null,
       nextDueDate,
+      notifyOnPost,
       keepAsOverdue: !isEditing ? keepAsOverdue : undefined,
       backfillFromDate: !isEditing && showBackfillFields && backfillFromDate < today ? backfillFromDate : undefined,
     };
@@ -542,6 +544,14 @@ function RecurringForm({ accounts, externalAccounts, onExternalAccountAdded, onA
         )}
       </div>
 
+      <div className="mb-4 flex items-center gap-1.5">
+        <label className="flex items-center gap-2 text-xs" style={{ color: colors.text }}>
+          <input type="checkbox" checked={notifyOnPost} onChange={(e) => setNotifyOnPost(e.target.checked)} />
+          Email me each time this posts
+        </label>
+        <InfoBubble text="Also requires Recurring post alerts to be turned on in Settings - both need to be on for the email to send." />
+      </div>
+
       {!isEditing && (
         <div className="mb-5">
           <button type="button" onClick={() => setShowBackfillFields((v) => !v)} className="text-xs underline mb-2" style={{ color: colors.accentLight }}>
@@ -790,13 +800,13 @@ export default function ManageRecurringPage() {
         <PageBlurb>Create, edit, or delete recurring bills and income that post automatically on schedule.</PageBlurb>
         {error && <p className="text-sm mb-4" style={{ color: colors.alert }}>{error}</p>}
 
-        <button type="button" onClick={() => setView("create")} disabled={!accounts} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
+        <button type="button" data-wizard-target="wizard-recurring-add" onClick={() => setView("create")} disabled={!accounts} className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2" style={{ border: `1px dashed ${colors.borderStrong}`, color: colors.textMuted }}>
           <Plus size={16} />
           Add recurring income or expense
         </button>
 
         <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">Income</h3>
-        <div className="rounded-2xl px-4 mb-6 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl px-4 mb-6 relative overflow-hidden" data-wizard-target="wizard-recurring-income" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <div className="pt-1">
             {items === null && !error ? (
               <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Loading…</p>
@@ -811,7 +821,7 @@ export default function ManageRecurringPage() {
         </div>
 
         <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">Expenses</h3>
-        <div className="rounded-2xl px-4 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+        <div className="rounded-2xl px-4 relative overflow-hidden" data-wizard-target="wizard-recurring-expenses" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
           <div className="pt-1">
             {items === null && !error ? (
               <p className="text-sm py-4 text-center" style={{ color: colors.textMuted }}>Loading…</p>

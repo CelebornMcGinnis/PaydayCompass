@@ -290,20 +290,12 @@ export default function AccountDetailPage() {
   const canModifyTransactions = account && (!account.sharedFromUserId || account.sharedDataPermissions?.modifyTransactions === "edit");
   const divisionsTotal = (divisions || []).reduce((sum, d) => sum + d.balance, 0);
 
-  const dueFromThisAccount = useMemo(() => {
-    if (!paydayData || paydayData.mode !== "preview") return 0;
-    let total = 0;
-    for (const e of paydayData.upcomingExpenses || []) {
-      if (e.accountId === accountId) total += e.estimatedAmount;
-    }
-    for (const b of paydayData.budgetedExpenses || []) {
-      if (b.accountId === accountId) total += b.amount;
-    }
-    for (const pe of [...(paydayData.plannedExpenseContributions || []), ...(paydayData.overduePlannedExpenses || [])]) {
-      if (pe.linkedAccountId === accountId) total += pe.amount;
-    }
-    return total;
-  }, [paydayData, accountId]);
+  // The lowest balance this account is projected to hit before every
+  // income source has completed at least one full cycle - computed
+  // server-side (finance_common.low_balance_projection), same field
+  // Dashboard's account cards use.
+  const lowestBalance = paydayData?.mode === "preview" ? paydayData.lowestProjectedBalance?.[accountId]?.amount : undefined;
+  const showLowestBalance = account && lowestBalance !== undefined && Math.abs(lowestBalance - account.balance) > 0.005;
 
   return (
     <div className="min-h-screen pb-10" style={{ background: colors.bg, fontFamily: fontBody }}>
@@ -340,7 +332,7 @@ export default function AccountDetailPage() {
           )}
 
           {!account.sharedFromUserId && (
-            <div className="mb-4">
+            <div className="mb-4" data-wizard-target="wizard-accountdetail-external">
               <p className="text-xs uppercase tracking-wide mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Connected external account <span style={{ opacity: 0.6, textTransform: "none" }}>(optional)</span></p>
               {addingExternalAccount ? (
                 <>
@@ -436,21 +428,22 @@ export default function AccountDetailPage() {
               </span>
             </div>
           )}
-          <div className="rounded-2xl p-5 mb-5 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+          <div className="rounded-2xl p-5 mb-5 relative overflow-hidden" data-wizard-target="wizard-accountdetail-balance" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
             <p className="text-xs uppercase tracking-wide mb-1.5" style={{ color: colors.textMuted, letterSpacing: "0.08em" }}>Current balance</p>
             <div className="flex items-baseline gap-2 flex-wrap">
               <p style={{ fontFamily: fontMono, fontSize: 30, color: colors.text }}>{formatMoney(account.balance)}</p>
               {divisions && divisions.length > 0 && (
                 <p style={{ fontFamily: fontMono, fontSize: 14, color: colors.textMuted }}>({formatMoney(account.balance - divisionsTotal)} unassigned)</p>
               )}
-              {dueFromThisAccount > 0.005 && (
-                <p style={{ fontFamily: fontMono, fontSize: 14, color: colors.textMuted }}>({formatMoney(account.balance - dueFromThisAccount)} available after upcoming payments)</p>
+              {showLowestBalance && (
+                <p style={{ fontFamily: fontMono, fontSize: 14, color: lowestBalance < 0 ? colors.alert : colors.textMuted }}>({formatMoney(lowestBalance)} available after upcoming payments)</p>
               )}
             </div>
           </div>
 
           <button
             type="button"
+            data-wizard-target="wizard-accountdetail-addexpense"
             onClick={() => navigate(`/add-expense?accountId=${accountId}`)}
             className="w-full rounded-2xl py-3 mb-6 text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
             style={{ background: colors.accent, color: colors.bg }}
@@ -469,7 +462,7 @@ export default function AccountDetailPage() {
             Transfer funds
           </button>
 
-          <div className="flex items-center mb-2 px-1">
+          <div className="flex items-center mb-2 px-1" data-wizard-target="wizard-accountdetail-divisions">
             <span className="text-sm font-medium" style={{ color: colors.text }}>Divisions</span>
             <InfoBubble text="Named sub-allocations within this account's balance - track that $200 of your total is set aside for one thing while $150 is set aside for another. A recurring item can optionally be tagged with a division, so it adjusts both the account's balance and that division's own balance when it posts." />
           </div>
@@ -549,7 +542,7 @@ export default function AccountDetailPage() {
             )
           )}
 
-          <div className="mb-6">
+          <div className="mb-6" data-wizard-target="wizard-accountdetail-trend">
             <div className="flex items-center mb-2 px-1">
               <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Balance trend</h3>
               <InfoBubble text="Reconstructed from your actual transaction history, working backward from today's balance - the last 30 changes on this account." />
@@ -585,7 +578,7 @@ export default function AccountDetailPage() {
             <DivisionTrendCharts accountId={accountId} divisions={divisions} transactions={transactions || []} />
           )}
 
-          <div className="mb-6">
+          <div className="mb-6" data-wizard-target="wizard-accountdetail-category">
             <div className="flex items-center mb-2 px-1">
               <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>Spending by category</h3>
               <InfoBubble text="This account's debits this calendar month, grouped by category. Transfers aren't counted." />
@@ -609,7 +602,7 @@ export default function AccountDetailPage() {
 
           <div>
             <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }} className="mb-1 px-1">Transactions</h3>
-            <div className="rounded-2xl px-4 relative overflow-hidden" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
+            <div className="rounded-2xl px-4 relative overflow-hidden" data-wizard-target="wizard-accountdetail-transactions" style={{ background: colors.surface, border: `1px solid ${colors.border}` }}>
               <div className="pt-1">
                 {transactions.length === 0 ? (
                   <p className="text-sm py-6 text-center" style={{ color: colors.textMuted }}>No transactions yet.</p>
