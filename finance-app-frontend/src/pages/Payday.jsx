@@ -504,7 +504,7 @@ export default function PaydayPage() {
           )}
 
           {data.mode === "history" && (
-            <div className="mb-5">
+            <div className="mb-5" data-wizard-target="wizard-payday-update">
               <div className="flex items-center mb-2 px-1">
                 <h3 style={{ fontFamily: fontDisplay, color: colors.text, fontSize: 15, fontWeight: 600 }}>What got set aside</h3>
                 <InfoBubble text="Budgeted categories and planned expenses that auto-posted (or were submitted early) for this payday. Edit an amount and Update pushes just the difference out as a correction - the original transfer stays on record as it happened." />

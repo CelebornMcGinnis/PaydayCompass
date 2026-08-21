@@ -30,14 +30,14 @@ export const WIZARDS = {
       covers: [
         "Viewing a different payday",
         "Your income and recurring expenses",
-        "Budgeted & planned set-asides",
-        "Submitting",
+        "Budgeted & planned set-asides auto-post now",
+        "Submitting early (optional)",
       ],
       steps: [
         {
           targetId: "wizard-payday-selector",
           title: "Which payday you're looking at",
-          body: "This defaults to your very next payday. Use “Change” to look back at one you already submitted, or jump to any other date.",
+          body: "This defaults to your very next payday. Use “Change” to look back at a real one that already happened, or jump to any other date.",
         },
         {
           targetId: "wizard-payday-income",
@@ -52,16 +52,16 @@ export const WIZARDS = {
         {
           targetId: "wizard-payday-budgeted",
           title: "Budgeted & planned set-asides",
-          body: "“Will transfer” means that category or planned expense has a destination account set - submitting will actually move real money there. “Reminder only” ones just show you the number without moving anything.",
+          body: "“Will transfer” means that category or planned expense has a destination account set - it'll actually move real money there automatically on your real payday, even if you never open this page. “Reminder only” ones just show you the number without moving anything.",
         },
         {
           targetId: "wizard-payday-submit",
-          title: "Submitting",
-          body: "This is the one real, money-moving step - everything above is just preview and adjustment until you tap this. Once submitted, this exact payday can't be submitted again without reversing it first.",
+          title: "Submitting early",
+          body: "You don't have to submit anything - budgeted and planned amounts move on their own on your real payday, same as your recurring income and expenses already do. This button just lets you move that money sooner, or lock in an adjusted amount before it posts, if you want to get ahead of it.",
         },
         {
-          title: "After you submit",
-          body: "Every transaction posts immediately, recurring schedules advance to their next occurrence, and any account-to-account transfers happen for real - not just recorded, actually moved. If something's wrong afterward, you can undo the whole submission from that payday's history entry.",
+          title: "After it posts",
+          body: "Whether it happened automatically or you submitted early, come back afterward (use “Change” above) to see exactly what moved - and if an amount was off, fix it right there. Covered next in Advanced.",
         },
       ],
     },
@@ -72,7 +72,8 @@ export const WIZARDS = {
         "Why some items transfer and others don't",
         "Grouping by real-world bank account",
         "Letting someone know",
-        "Reversing a submission",
+        "Correcting a past payday",
+        "Multiple income accounts",
       ],
       steps: [
         {
@@ -83,7 +84,7 @@ export const WIZARDS = {
         {
           targetId: "wizard-payday-budgeted",
           title: "Why only some items actually transfer",
-          body: "Why: a budget or planned expense with no destination account is a pure spending ceiling - useful on its own, nothing to set up. Add a destination account (in Budgets or Planned Expenses) once you're ready to have Payday actually set that money aside for you, instead of moving it by hand.",
+          body: "Why: a budget or planned expense with no destination account is a pure spending ceiling - useful on its own, nothing to set up. Add a destination account (in Budgets or Planned Expenses) once you're ready to have it actually set that money aside for you, instead of moving it by hand.",
         },
         {
           targetId: "wizard-payday-bybank",
@@ -96,8 +97,14 @@ export const WIZARDS = {
           body: "Sends a heads-up email plus an in-app notification. This needs a mutual fund-movement agreement first (set that up from the Notifications page) - a deliberate two-way opt-in, so nobody gets visibility into your money moving without agreeing to it first.",
         },
         {
-          title: "Reversing a past submission",
-          body: "Every payday you submit is fully reversible from its entry in payday history - deletes every transaction it created and puts every balance and recurring schedule back exactly where it was before. Useful if you catch a mistake after the fact rather than needing to undo it by hand.",
+          targetId: "wizard-payday-update",
+          title: "Correcting a past payday",
+          body: "Browse to a past date and you'll see exactly what auto-posted or was submitted early. If an amount was off - a bill came in different than budgeted, or you couldn't set aside quite as much as planned - edit it right there and hit Update. That posts a small correcting transaction for just the difference; the original entry stays on record exactly as it happened, so nothing gets silently rewritten.",
+        },
+        {
+          targetId: "wizard-payday-source-account",
+          title: "More than one paycheck?",
+          body: "Why: if income lands in more than one account, this picks which one funds your budgeted/planned set-asides when you submit early - each account's own automatic set-asides still happen on its own real payday regardless of what you pick here.",
         },
       ],
     },
