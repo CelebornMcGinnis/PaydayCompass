@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Clock, ArrowRight } from "lucide-react";
 import { colors, fontDisplay } from "../lib/theme";
 
@@ -52,7 +53,12 @@ export default function WizardMenu({ open, pageTitle, wizard, blocked, onClose, 
 
   const showBlocked = !!blocked && !skippedBlock;
 
-  return (
+  // Portaled to document.body - mounted inside PageHeader, which on some
+  // pages sits under enough sticky/backdrop-filter ancestors that mobile
+  // Safari stops treating `position: fixed` as viewport-relative and
+  // clips the overlay to whatever scrollable box it's actually nested
+  // in. Escaping to body sidesteps that entirely.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-5"
       style={{ background: "rgba(0,0,0,0.5)" }}
@@ -108,6 +114,7 @@ export default function WizardMenu({ open, pageTitle, wizard, blocked, onClose, 
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

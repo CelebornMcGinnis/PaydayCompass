@@ -244,21 +244,26 @@ export default function ScenariosPage() {
           </div>
           {incomeAdjustments.map((a) => (
             <div key={a.id} className="mb-2">
-              <AdjustmentRow onRemove={() => setIncomeAdjustments((r) => r.filter((x) => x.id !== a.id))}>
-                <select
-                  value={a.recurringId}
-                  onChange={(e) => {
-                    const item = incomeOptions.find((i) => i.recurringId === e.target.value);
-                    setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, recurringId: e.target.value, newAmount: item ? String(Math.round(monthlyEquivalent(item) * 100) / 100) : "" } : x));
-                  }}
-                  className="flex-1 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none"
-                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                >
-                  <option value="">Choose…</option>
-                  {incomeOptions.map((i) => <option key={i.recurringId} value={i.recurringId}>{i.description} ({formatMoney(i.estimatedAmount)}/{FREQUENCY_ABBR[i.frequency] || i.frequency})</option>)}
-                </select>
-                <input type="number" value={a.newAmount} onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 112, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
-              </AdjustmentRow>
+              <div className="flex flex-col gap-2">
+                <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                  <select
+                    value={a.recurringId}
+                    onChange={(e) => {
+                      const item = incomeOptions.find((i) => i.recurringId === e.target.value);
+                      setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, recurringId: e.target.value, newAmount: item ? String(Math.round(monthlyEquivalent(item) * 100) / 100) : "" } : x));
+                    }}
+                    className="w-full rounded-lg px-2.5 py-1.5 text-sm focus:outline-none"
+                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, maxWidth: "100%", boxSizing: "border-box" }}
+                  >
+                    <option value="">Choose…</option>
+                    {incomeOptions.map((i) => <option key={i.recurringId} value={i.recurringId}>{i.description} ({formatMoney(i.estimatedAmount)}/{FREQUENCY_ABBR[i.frequency] || i.frequency})</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={a.newAmount} onChange={(e) => setIncomeAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
+                  <button onClick={() => setIncomeAdjustments((r) => r.filter((x) => x.id !== a.id))} aria-label="Remove" className="shrink-0" style={{ color: colors.alert }}><Trash2 size={15} /></button>
+                </div>
+              </div>
               {a.recurringId && (
                 <>
                   <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>
@@ -307,21 +312,26 @@ export default function ScenariosPage() {
           </div>
           {expenseAdjustments.map((a) => (
             <div key={a.id} className="mb-2">
-              <AdjustmentRow onRemove={() => setExpenseAdjustments((r) => r.filter((x) => x.id !== a.id))}>
-                <select
-                  value={a.recurringId}
-                  onChange={(e) => {
-                    const item = expenseOptions.find((i) => i.recurringId === e.target.value);
-                    setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, recurringId: e.target.value, newAmount: item ? String(Math.round(monthlyEquivalent(item) * 100) / 100) : "" } : x));
-                  }}
-                  className="flex-1 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none"
-                  style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text }}
-                >
-                  <option value="">Choose…</option>
-                  {expenseOptions.map((e) => <option key={e.recurringId} value={e.recurringId}>{e.description} ({formatMoney(e.estimatedAmount)}/{FREQUENCY_ABBR[e.frequency] || e.frequency})</option>)}
-                </select>
-                <input type="number" value={a.newAmount} onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ width: 112, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
-              </AdjustmentRow>
+              <div className="flex flex-col gap-2">
+                <div style={{ width: "100%", overflow: "hidden", borderRadius: 8 }}>
+                  <select
+                    value={a.recurringId}
+                    onChange={(e) => {
+                      const item = expenseOptions.find((i) => i.recurringId === e.target.value);
+                      setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, recurringId: e.target.value, newAmount: item ? String(Math.round(monthlyEquivalent(item) * 100) / 100) : "" } : x));
+                    }}
+                    className="w-full rounded-lg px-2.5 py-1.5 text-sm focus:outline-none"
+                    style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, maxWidth: "100%", boxSizing: "border-box" }}
+                  >
+                    <option value="">Choose…</option>
+                    {expenseOptions.map((e) => <option key={e.recurringId} value={e.recurringId}>{e.description} ({formatMoney(e.estimatedAmount)}/{FREQUENCY_ABBR[e.frequency] || e.frequency})</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={a.newAmount} onChange={(e) => setExpenseAdjustments((r) => r.map((x) => x.id === a.id ? { ...x, newAmount: e.target.value } : x))} placeholder="New $/mo" style={{ background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontFamily: fontMono }} className="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
+                  <button onClick={() => setExpenseAdjustments((r) => r.filter((x) => x.id !== a.id))} aria-label="Remove" className="shrink-0" style={{ color: colors.alert }}><Trash2 size={15} /></button>
+                </div>
+              </div>
               {a.recurringId && (
                 <>
                   <label className="text-xs block mt-1.5 mb-1" style={{ color: colors.textMuted }}>Starting (optional - defaults to right away)</label>

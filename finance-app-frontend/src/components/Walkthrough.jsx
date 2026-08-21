@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { colors, fontDisplay, fontBody } from "../lib/theme";
 
@@ -142,7 +143,13 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
         overflowY: "auto",
       };
 
-  return (
+  // Portaled to document.body for the same reason as WizardMenu (which
+  // opens this when launched from PageHeader, nested deep enough under
+  // sticky/backdrop-filter ancestors that mobile Safari stops treating
+  // `position: fixed` as viewport-relative) - Dashboard's own tour opens
+  // this from much shallower in the tree, but there's no harm in the
+  // same fix applying there too.
+  return createPortal(
     <>
       <div style={spotlightStyle} />
       <div
@@ -175,6 +182,7 @@ export default function Walkthrough({ steps, onFinish, onStepChange }) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
